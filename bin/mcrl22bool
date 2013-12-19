@@ -21,7 +21,7 @@ done
 
 # script syntax ok
 if (( $# < 2 )); then
-  echo usage: mcrl22bool mcrl2-file formula
+  echo usage: mcrl22bool [-m mcrl2lps-options] mcrl2-file formula
   exit 1
 fi
 
