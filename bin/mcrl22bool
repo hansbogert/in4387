@@ -2,10 +2,14 @@
 
 # opts
 mcrlOptions=''
-while getopts ":m:" opt; do
+while getopts ":m:f:" opt; do
   case $opt in
     m) # mcrl2lps options
       mcrl2lpsOptions="$OPTARG"
+      ;;
+    f)
+      # we want to use file option, so no reading from 2nd argument 
+      mcfFile="$OPTARG"
     ;;
     \?)
       echo "invalid option: -$OPTARG"
@@ -19,33 +23,55 @@ while getopts ":m:" opt; do
   shift $((OPTIND-1))
 done
 
+function executeFromFile {
+  #args
+  mcrlFile=$1  
+
+  if [[ -z "$mcfFile" ]]; then
+    echo no mcf file give, use the -f option
+    usage
+    exit 1;
+  fi
+
+
+  mcrl22lps $mcrl2lpsOptions $mcrlFile | lps2pbes -f $mcfFile | pbes2bool
+}
+
+function executeFromArgument {
+  namedPipeFile=formula
+  mcrlFile=$1
+  formula=$2
+
+  # make namedpipe if file does not exists
+  if [[ ! -f $namedPipeFile ]]; then
+    mkfifo $namedPipeFile
+  else
+    echo "Could not make named pipe, filename already exists"
+    exit 1
+  fi
+
+  #execute
+  echo "$formula" > formula& mcrl22lps $mcrl2lpsOptions $mcrlFile | lps2pbes -f $namedPipeFile | pbes2bool
+
+  # clean up named pipe
+  rm $namedPipeFile
+}
+
+function usage {
+  echo usage: mcrl22bool [-m mcrl2lps-options] [-f formula-file] mcrl2-file [formula]
+}
+
+## Script main
+
 # script syntax ok
-if (( $# < 2 )); then
-  echo usage: mcrl22bool [-m mcrl2lps-options] mcrl2-file formula
+if (( $# < 1 )); then
+  usage
   exit 1
-fi
-
-#args
-mcrlFile=$1
-formula=$2
-namedPipeFile=formula
-
-# input mcrl file check
-if [[ ! -f $mcrlFile ]]; then
-  echo error: input mcrl file not found
-  exit 1
-fi
-
-# make namedpipe if file does not exists
-if [[ ! -f $namedPipeFile ]]; then
-  mkfifo $namedPipeFile
+elif (( $# == 1 )); then
+  executeFromFile $1
+elif (( $# == 2  )); then
+  executeFromArgument $1 $2
 else
-  echo "Could not make named pipe, filename already exists"
-  exit 1
+  usage
+  exit 1;
 fi
-
-# execute
-echo "$formula" > formula& mcrl22lps $mcrl2lpsOptions $mcrlFile | lps2pbes -f $namedPipeFile | pbes2bool
-
-# clean up named pipe
-rm $namedPipeFile
