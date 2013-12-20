@@ -1,0 +1,2 @@
+%% There is no case when a stopSign can be activated without first having had a corresponding preSign enabled
+! forall S: StopSign . < (!setPreSign(corrP(S),on))* . setStopSign(S,on)>true
