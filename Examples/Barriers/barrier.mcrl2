@@ -1,35 +1,78 @@
+% 2. The barriers are only allowed to close when the stop-signs are on
+% 8. The barriers are allowed to open when the break is engaged and the locking pins are locked
+
 sort 	
-	Presign		= struct P1|P2|P3|P4;
-	Stopsign 	= struct S1|S2|S3|S4;
-	Status		= struct on | off;
+	Barrier			= struct B1|B2|B3|B4;
+	BarrierState	= struct Up|Down;
 	
-	Barr		= struct B1|B2|B3|B4;
-	BState		= struct Up|Down;
+	StopSign		= struct S1|S2|S3|S4;
+	StopSignState	= struct on|off;
+	SSState			= StopSign -> StopSignState;
+	
+	BreakState		= struct engaged|disengaged;
+	
+	Pin				= struct L1|L2;
+	LockPinState	= struct locked|unlocked;
 
 act
-	activatePresign		:Presign;
- 	deactivatePresign	:Presign;
-	
 	activateStopSign	:Stopsign;
- 	deactivateStopSign	:Stopsign; 
+ 	deactivateStopSign	:Stopsign; 	
+	readStopSignState	:StopSignState; %%
 	
-	openBarrier			:Barr;
-	closeBarrier		:Barr;
+	applyBrake;
+	releaseBreak;
+	readBrakeState;
 	
-	readBarrierUpState	:Barr -> BState;
- 	readBarrierDownState:Barr -> BState;
-
+	lockPin				:Pin
+	unlockPin			:Pin
+	readPinState		:Pin
+	
+	openBarrier			:Barrier;
+	closeBarrier		:Barrier;	
+	readBarrierState	:Barrier;
+		
 proc
+	User = 
+		sum s: Stopsign, activateStopSign(s) . applyBrake . 
+		sum l:Pin, lockpin(l) . lockpin(l) . 
+		sum ba: Barrier, openBarrier(ba) . User;
+
 	%a barrier can go up (open) when the bridge is closed (down), locked and the breaks are engaged.	
 	%Barrier (b: Barr) = activatePresign . activateStopSign . readBarrierDownState;
 	
-	Barrier (b: Barr) = 
-		sum r:  
-	
+	BarrierProc (b: Barrier, bs: BarrierState) = 
+		(bs == Down) ->
+		(
+			sum s:StopSign, ss:StopSignState . 
+				%% activate stopsign if not activated
+				(readStopSignState(ss) == off) -> activateStopSign(s) <> delta . 
+				%% apply brakes when not applied (for now)
+				(readBrakeState == disengaged) -> applyBrake <> delta .
+			sum p:Pin,
+				%% lock pins when unlocked (for now)
+				(readPinState(p) == unlocked) -> lockpin(p) <> delta .
+			%% open barriers
+			openBarrier(b);
+		)
+		<> 
+		(
+			sum s:StopSign, ss:StopSignState . 
+				%% deactivate stopsign if activated
+				(readStopSignState(ss) == on) -> deactivateStopSign(s) <> delta . 
+				%% release brakes when applied (for now)
+				(readBrakeState == engaged) -> releaseBreak <> delta .
+			sum p:Pin,
+				%% unlock pins when locked (for now)
+				(readPinState(p) == locked) -> unlockpin(p) <> delta .
+			%% close barriers
+			closeBarrier(b);
+		)
+			
 init
   allow(
     { openBarrier, closeBarrier },
     comm(
-      { activatePresign|... -> openBarrier, ...|... -> closeBarrier },
-      User || Barrier
+      { openBarrier -> openBarrier, closeBarrier -> closeBarrier },
+      User || BarrierProc(B1, Up)  || BarrierProc(B2, Up)  || BarrierProc(B3, Up)  || BarrierProc(B4, Up)
+		   || BarrierProc(B1, Down)|| BarrierProc(B2, Down)|| BarrierProc(B3, Down)|| BarrierProc(B4, Down)
   ) ) ;
