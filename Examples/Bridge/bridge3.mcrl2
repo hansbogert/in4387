@@ -1,0 +1,40 @@
+sort Lock = struct Locked | Unlocked;
+     Bridge_Move = struct BridgeMoveUp | BridgeMoveDown | BridgeMoveStop;
+     Bridge_Position = struct BridgeUp | BridgeDown;
+     %Barrier_Position = struct BarrierClose | BarrierOpen;
+     Lock_Pin = struct L1 | L2;
+     Lock_Pins = Lock_Pin -> Lock;
+		
+act lock_pin_motor: Lock_Pin # Lock;
+    motor_action: Bridge_Move;
+    lock_pins_unlocked, open_bridge, com1;
+    lock_pins_locked, open_barrier, com2;
+    barrier_down, barrier_open;
+
+map initLockPins: Lock_Pin -> Lock;
+var p: Lock_Pin;
+eqn initLockPins(p) = Locked;
+
+proc
+  LockPinMotors(motor: Lock_Pins) = 
+      sum l: Lock_Pin, s: Lock . (motor(l) != s) -> (lock_pin_motor(l, s) . 
+        LockPinMotors(motor[l->s]))
+      + (forall l: Lock_Pin . motor(l) == Unlocked) -> lock_pins_unlocked . LockPinMotors(motor)
+      + (forall l: Lock_Pin . motor(l) == Locked) -> lock_pins_locked . LockPinMotors(motor);
+
+  Bridge(position: Bridge_Position) =
+      (position == BridgeDown) -> open_bridge . motor_action(BridgeMoveUp) . Bridge(BridgeUp)
+    + (position == BridgeUp) -> motor_action(BridgeMoveDown) . Bridge(BridgeDown);
+
+  Barriers =
+      barrier_down . open_barrier . barrier_open . Barriers;
+
+
+init
+  allow(
+    { com1, com2, barrier_down, barrier_open, motor_action },
+    comm(
+      { lock_pins_unlocked|open_bridge -> com1,
+        lock_pins_locked|open_barrier -> com2	 }
+      , LockPinMotors(initLockPins) || Bridge(BridgeDown) || Barriers
+  ) ) ;

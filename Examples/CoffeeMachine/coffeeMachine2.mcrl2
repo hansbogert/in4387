@@ -1,0 +1,25 @@
+%%
+% In coffeeMachine0 we specified a coffee machine.
+% Now extend this coffee machine with actions
+% p_coffee and p_tea that
+% prepare the coffee and the tea.
+% * Is the resulting system strongly bisimilar to the original? (ltscompare)
+% * Make the new actions internal (hide)
+% * Is the result branching bisimilar to the original? (ltscompare)
+%%
+
+% Three actions for receiving coins, producing coffee and
+% producing tea
+act
+    r_coin, s_coffee, s_tea;
+
+% Actions for preparing coffee and tea.
+    p_coffee, p_tea;
+
+proc
+    CoffeeMachine2 = r_coin. (p_coffee. s_coffee + p_tea.s_tea ) . CoffeeMachine2 ;
+
+% The p* actions are marked as internal (hidden).
+init
+    hide ( {p_coffee, p_tea},
+            CoffeeMachine2 ) ;

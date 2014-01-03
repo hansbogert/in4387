@@ -1,0 +1,51 @@
+% Instead of receiving a single coin, we assume that coffee
+% is more expensive than tea, and we can insert 50 cents or
+% a euro.
+% Specify a data type Money, and adjust the process such that
+% r_coin is parameterised by Money.
+% Coffee costs a euro, and tea only fifty cents.
+
+% Money; we assume that everything more than a euro is just
+% stored as euro.
+sort
+    Money = struct zero | fiftyCents | euro;
+
+% We need to calculate with it….
+map
+    plus, minus : Money # Money -> Money ;
+
+var
+    m : Money ;
+
+eqn
+    plus( zero, m) = m;
+    plus( m, zero) = m;
+    plus(fiftyCents, fiftyCents) = euro;
+    plus(fiftyCents, euro) = euro;
+    plus(euro, fiftyCents) = euro;
+
+    minus(m, zero) = m;
+    minus(fiftyCents, fiftyCents) = zero;
+    minus(euro, fiftyCents) = fiftyCents;
+    minus(euro, euro) = zero;
+
+act
+    r_coin : Money ;
+    s_coffee, s_tea;
+
+proc
+
+    CoffeeMachine3 (content : Money )
+                   = sum coin : Money .
+                          (content != euro) -> r_coin (coin) .
+                             CoffeeMachine3(plus(content, coin))
+                   +
+                        (content == euro) -> s_coffee.
+                             CoffeeMachine3(minus(content, euro))
+                   +
+                        (content != zero) -> s_tea .
+                             CoffeeMachine3(minus(content, fiftyCents));
+
+
+init
+     CoffeeMachine3 (zero) ;

@@ -1,0 +1,23 @@
+sort Val = struct c2 | c5 | c10;
+
+map w: Val -> Nat;
+eqn w(c2)  = 2;
+    w(c5)  = 5;
+    w(c10) = 10;
+
+act insert_coin, return_coin: Val;
+    cancel, bad, good;
+
+proc Loading(t: Int) =
+       sum v: Val .
+         insert_coin(v) . Loading(t + w(v))
+     + (exists v: Val. t >= w(v)) -> cancel . Flushing(t)
+     + (t >= 10) -> bad . Loading(t - 10)
+     + (t >= 20) -> good . Loading(t - 20);
+
+     Flushing(t: Int) =
+       sum v: Val . sum t': Nat .
+         (t == t' + w(v)) -> return_coin(v) . Flushing(t')
+     + (forall v: Val . w(v) > t) -> Loading(t);
+
+init Loading(0);

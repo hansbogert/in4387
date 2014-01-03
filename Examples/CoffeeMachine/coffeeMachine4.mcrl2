@@ -1,0 +1,48 @@
+% Now also introduce a datatype for beverages,
+% and parameterise the send and prepare actions with the
+% beverage
+
+sort
+    Money = struct zero | fiftyCents | euro;
+    Beverage = struct coffee | tea;
+
+% We need to calculate with it….
+map
+    plus, minus : Money # Money -> Money ;
+
+var
+    m : Money ;
+
+eqn
+    plus( zero, m) = m;
+    plus( m, zero) = m;
+    plus(fiftyCents, fiftyCents) = euro;
+    plus(fiftyCents, euro) = euro;
+    plus(euro, fiftyCents) = euro;
+
+    minus(m, zero) = m;
+    minus(fiftyCents, fiftyCents) = zero;
+    minus(euro, fiftyCents) = fiftyCents;
+    minus(euro, euro) = zero;
+
+act
+    r_coin : Money ;
+    s_bvg: Beverage;
+
+
+proc
+
+    CoffeeMachine4 (content : Money )
+                   = sum coin : Money .
+                          (content != euro) -> r_coin (coin) .
+                             CoffeeMachine4(plus(content, coin))
+                   +
+                        (content == euro) -> s_bvg(coffee).
+                             CoffeeMachine4(minus(content, euro))
+                   +
+                        (content != zero) -> s_bvg(tea) .
+                             CoffeeMachine4(minus(content, fiftyCents));
+
+
+init
+     CoffeeMachine4 (zero) ;

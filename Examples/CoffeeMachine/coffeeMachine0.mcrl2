@@ -1,0 +1,23 @@
+%%
+% Specify a coffee machine that can
+% receive a coin using r_coin
+% and produce coffee and tea using s_coffee and s_tea, respectively.
+%
+% * Linearise the coffee machine using mcrl22lps
+% * Simulate the coffee machine using lpsxsim
+% * Generate state space using lps2lts
+% * Visualise using ltsgraph.
+% * Reduce w.r.t. strong bisimulation using ltsconvert.
+%%
+
+% Note that during the lecture I also showed the coffee
+% machine without recursion, which lead to a Terminate
+% action being added.
+
+act r_coin;
+    s_coffee, s_tea;
+
+proc CoffeeMachine =
+  r_coin . (s_coffee + s_tea) . CoffeeMachine;
+
+init CoffeeMachine;

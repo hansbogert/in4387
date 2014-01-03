@@ -1,0 +1,41 @@
+sort Lock = struct Locked | Unlocked;
+sort Bridge_Lock = struct AllLocked | PartLocked | NoneLocked;
+sort Bridge_Move = struct BridgeMoveUp | BridgeMoveDown | BridgeMoveStop;
+sort Bridge_Position = struct BridgeUp | BridgeDown;
+		
+act
+  lock_pin1, lock_pin2, lock_pin_motor1, lock_pin_motor2, lock_pin_sensor1, lock_pin_sensor2: Lock;  
+  motor_set, motor_action, motor: Bridge_Move;
+  bridge_sensor, bridge_status, bridge: Bridge_Position;
+
+proc
+  User = 
+  ((lock_pin_motor1(Locked) . lock_pin_motor2(Locked)) +
+  (lock_pin_motor2(Locked) . lock_pin_motor1(Locked))) .
+  ((lock_pin_motor1(Unlocked) . lock_pin_motor2(Unlocked)) + 
+  (lock_pin_motor2(Unlocked) . lock_pin_motor1(Unlocked))) .
+  motor_set(BridgeMoveUp) . motor_set(BridgeMoveStop) . motor_set(BridgeMoveDown) . User;
+
+  Safety = 
+  bridge_sensor(BridgeDown) . 
+  ((lock_pin_sensor1(Unlocked) . lock_pin_sensor2(Unlocked)) +
+  (lock_pin_sensor2(Unlocked) . lock_pin_sensor1(Unlocked))) .
+  motor_action(BridgeMoveUp) . motor_action(BridgeMoveStop) . bridge_sensor(BridgeUp) . 
+  motor_action(BridgeMoveDown) . Safety;
+	
+  Bridge = 
+  ((lock_pin_sensor1(Locked) . lock_pin_sensor2(Locked)) + 
+  (lock_pin_sensor2(Locked) . lock_pin_sensor1(Locked))) .
+  bridge_status(BridgeDown) . bridge_status(BridgeUp) . 
+  Bridge;
+
+init
+  allow(
+    { lock_pin1, lock_pin2, motor, bridge },
+    comm(
+      { lock_pin_motor1|lock_pin_sensor1 -> lock_pin1,
+        lock_pin_motor2|lock_pin_sensor2 -> lock_pin2,
+        motor_set|motor_action -> motor,
+        bridge_sensor|bridge_status -> bridge	}
+      , User || Safety || Bridge
+  ) ) ;

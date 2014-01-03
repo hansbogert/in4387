@@ -1,0 +1,28 @@
+%%
+% In coffeeMachine0 we have specified a process
+% CoffeeMachine. Extend it such that we can choose
+% between the behaviour of two coffee machine instances.
+% Two coffee machines are running next to each other, e.g.
+% for redundancy. One coffee machine will take care of your
+% order.
+%
+% * Is this different to the previous coffee machine?
+% * Explain what we see.
+% * Is the coffee machine strongly bisimilar to the machine in
+%   coffeeMachine0.mcrl2?
+%%
+
+% Three actions for receiving coins, producing coffee and
+% producing tea
+act
+    r_coin, s_coffee, s_tea;
+
+% The coffee machine we saw previously:
+proc
+    CoffeeMachine = r_coin. (s_coffee + s_tea ) . CoffeeMachine ;
+
+% Two coffee machines running next to each other.
+    CoffeeMachine1 = CoffeeMachine + CoffeeMachine ;
+
+% And we start with the coffee machine...
+init CoffeeMachine1;
