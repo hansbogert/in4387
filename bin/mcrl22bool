@@ -38,27 +38,17 @@ function executeFromFile {
 }
 
 function executeFromArgument {
-  namedPipeFile=formula
   mcrlFile=$1
   formula=$2
 
-  # make namedpipe if file does not exists
-  if [[ ! -f $namedPipeFile ]]; then
-    mkfifo $namedPipeFile
-  else
-    echo "Could not make named pipe, filename already exists"
-    exit 1
-  fi
-
   #execute
-  echo "$formula" > $namedPipeFile& mcrl22lps $mcrl2lpsOptions $mcrlFile | lps2pbes -f $namedPipeFile | pbes2bool
+  mcrl22lps $mcrl2lpsOptions $mcrlFile | lps2pbes -f <(echo "$formula") | pbes2bool
 
-  # clean up named pipe
-  rm $namedPipeFile
 }
 
 function usage {
-  echo usage: mcrl22bool [-m mcrl2lps-options] [-f formula-file] mcrl2-file [formula]
+  echo "usage: mcrl22bool [-m mcrl2lps-options] mcrl2-file formula"
+  echo "       mcrl22bool [-m mcrl2lps-options] -f formula-file mcrl2-file"
 }
 
 ## Script main
