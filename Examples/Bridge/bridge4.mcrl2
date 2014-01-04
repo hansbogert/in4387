@@ -41,7 +41,7 @@ proc
       + !(exists l: Lock_Pin . motor(l) == Unlocked) -> proc_lock_pins_locked . LockPinMotors(motor);
 
   Bridge(position: Bridge_Position) =
-        (position == BridgeDown) -> proc_bridge_move . proc_motor_action(BridgeMoveUp) . Bridge(BridgeUp)
+        (position == BridgeDown) -> proc_bridge_move . proc_motor_action(BridgeMoveUp) . proc_motor_action(BridgeMoveStop) .Bridge(BridgeUp)
       + (position == BridgeDown) -> proc_bridge_down . Bridge(BridgeDown)
       + (position == BridgeUp) -> proc_bridge_move . proc_motor_action(BridgeMoveDown) . Bridge(BridgeDown)
       + (position == BridgeUp) -> proc_bridge_up . Bridge(BridgeUp);
@@ -60,7 +60,7 @@ init
   allow(
     { comm_lock_pins_change, comm_lock_pin_motor, comm_bridge_move, comm_motor_action, comm_barrier_move_up, comm_barrier_move },
     comm(
-      { proc_lock_pins_change|proc_barrier_down_pins -> comm_lock_pins_change,
+      { proc_lock_pins_change|proc_barrier_down_pins|proc_bridge_down -> comm_lock_pins_change,
         user_lock_pin_motor|proc_lock_pin_motor -> comm_lock_pin_motor,
         proc_bridge_move|proc_lock_pins_unlocked -> comm_bridge_move,
         user_motor_action|proc_motor_action -> comm_motor_action,
