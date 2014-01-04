@@ -43,15 +43,18 @@ eqn initLockPins(p) = Locked;
 
 proc
   LockPinMotors(motor: Lock_Pins) = 
-      sum l: Lock_Pin, s: Lock . (motor(l) != s) -> proc_lock_pins_change . proc_lock_pin_motor(l, s) .
-        LockPinMotors(motor[l->s])
-      + !(exists l: Lock_Pin . motor(l) == Locked) -> proc_lock_pins_unlocked . LockPinMotors(motor)
-      + !(exists l: Lock_Pin . motor(l) == Unlocked) -> proc_lock_pins_locked . LockPinMotors(motor);
+      proc_lock_pins_change . (
+           sum l: Lock_Pin, s: Lock . (motor(l) != s) -> proc_lock_pin_motor(l, s) . LockPinMotors(motor[l->s]) 
+         + LockPinMotors(motor) )
+      + (forall l: Lock_Pin . motor(l) == Unlocked) -> proc_lock_pins_unlocked . LockPinMotors(motor)
+      + (forall l: Lock_Pin . motor(l) == Locked) -> proc_lock_pins_locked . LockPinMotors(motor);
 
   BarrierProcess(bars: Barriers) =
-      sum b: Barrier, p:Barrier_Position . (bars(b) != p) -> proc_barrier_move_pins . proc_barrier_move(b, p) .  BarrierProcess(bars[b->p])
-      + !(exists b: Barrier . bars(b) == BarrierUp) -> proc_barrier_down . BarrierProcess(bars)
-      + !(exists b: Barrier . bars(b) == BarrierDown) -> proc_barrier_up . BarrierProcess(bars);
+      proc_barrier_move_pins. (
+	sum b: Barrier, p:Barrier_Position . (bars(b) != p) -> proc_barrier_move(b, p) . BarrierProcess(bars[b->p])
+         + BarrierProcess(bars) )
+      + (forall b: Barrier . bars(b) == BarrierDown) -> proc_barrier_down . BarrierProcess(bars)
+      + (forall b: Barrier . bars(b) == BarrierUp) -> proc_barrier_up . BarrierProcess(bars);
  
   Bridge(position: Bridge_Position) =
       %simpele versie van de Bridge
@@ -64,7 +67,10 @@ proc
         %de gebruiker kan altijd alle knoppen indrukken
         sum l: Lock_Pin, s: Lock . user_lock_pin_motor(l, s) . User
       + sum m: Bridge_Move . user_motor_action(m) . User
-      + sum b: Barrier, p: Barrier_Position . user_barrier_move(b, p) . User;
+      + sum b: Barrier, p: Barrier_Position . user_barrier_move(b, p) . User;      
+      %om het aantal barrier move states te verkleinen:
+      %+ user_barrier_move(B1, BarrierDown) . user_barrier_move(B2, BarrierDown) . user_barrier_move(B3, BarrierDown) . user_barrier_move(B4, BarrierDown) . User
+      %+ user_barrier_move(B1, BarrierUp) . user_barrier_move(B2, BarrierUp) . user_barrier_move(B3, BarrierUp) . user_barrier_move(B4, BarrierUp) . User;
 
 init
   allow(
