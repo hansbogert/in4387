@@ -2,57 +2,57 @@
 % 8. The barriers are allowed to open when the break is engaged and the locking pins are locked
 
 sort 	
-	Barrier			= struct B1|B2|B3|B4;
+	Barrier		= struct B1|B2|B3|B4;
 	BarrierState	= struct Up|Down;
-	BBState			= Barrier -> BarrierState;
+	BBState		= Barrier -> BarrierState;
 	
 	StopSign		= struct S1|S2|S3|S4;
 	StopSignState	= struct on|off;
-	SSState			= StopSign -> StopSignState;
+	SSState		= StopSign -> StopSignState;
+	
+	%motorStatus	= struct on|off;
 
 	BreakState		= struct engaged|disengaged;
 	
-	Pin				= struct L1|L2;
+	Pin		= struct L1|L2;
 	LockPinState	= struct locked|unlocked;
 	
-%%map  p0: SS;
+%map  p0: SS;
 
 act
-	UIactivateStopSign		:StopSign;
-	CtrlactivateStopSign	:StopSign;
-	close					:StopSign;
+	UserActivateStopSign,ProcActivateStopSign,
+	close,
+	UserDeactivateStopSign,ProcDeactivateStopSign :StopSign;
+	readStopSignState :SSState;
 	
- 	UIdeactivateStopSign	:StopSign; 	
-	CtrldeactivateStopSign	:StopSign;
-	
-	readStopSignState		:SSState;
-	
-	UIapplyBrake;
-	CtrlapplyBreak;	
-	UIreleaseBreak;
-	CtrlreleaseBreak;	
+	UserApplyBrake,ProcApplyBreak,
+	UserReleaseBreak,ProcReleaseBreak,	
 	readBrakeState;
 	
-	UIlockPin				:Pin;
-	CtrllockPin				:Pin;	
-	UIunlockPin				:Pin;
-	CtrlunlockPin			:Pin;	
-	readPinState			:Pin;
-	open					:Pin;
+	UserLockPin,ProcLockPin,
+	UserUnlockPin,ProcUnlockPin,
+	readPinState,
+	open:Pin;
 	
-	openBarrier				:Barrier;
-	closeBarrier			:Barrier;	
+	openBarrier,closeBarrier:Barrier;	
 	readBarrierState		:BBState;
-		
-proc
-	User = 
-		sum s: Stopsign . UIactivateStopSign(s) . UIapplyBrake . 
-		sum l:Pin . UIlockpin(l) .
-		sum ba: Barrier . User;
+	
+act switchOffSigns, switchOnSigns, closeBarriers, openBridge, closeBridge;
 
+map setAllUp: Barrier -> BarrierState;
+var x: Barrier;
+eqn setAllUp(x) = Up;
+	
+proc 
+	User = 
+     	sum s:StopSign . UserActivateStopSign(s) . UserApplyBrake . 
+		sum l:Pin . UserLockPin(l) .
+		sum ba: Barrier . User;
+proc
 	%a barrier can go up (open) when the bridge is closed (down), locked and the breaks are engaged.	
 	%Barrier (b: Barr) = activatePresign . activateStopSign . readBarrierDownState;
 	
+	% Process representing the Barrier
 	BarrierProc (b: Barrier, bs: BarrierState) = 
 		(	
 			%% when a barrier is open (up) , close (down) the barrier
@@ -60,46 +60,51 @@ proc
 			(
 				%% activate stopsign if not activated
 				sum s:StopSign . (readStopSignState(s) == off) -> 
-					CtrlactivateStopSign(s) <> delta . 
+					ProcActivateStopSign(s) <> delta . 
 				%% close barriers
 				closeBarrier(b) .
 				
 				%% to open the bridge...
 				
+				
 				%% unlock pins when locked (for now)
 				sum p:Pin .
-					(readPinState(p) == locked) -> Ctrlunlockpin(p) <> delta .
+					(readPinState(p) == locked) -> ProcUnlockPin(p) <> delta .
 				%% release brakes when applied (for now)
-				(readBrakeState == engaged) -> CtrlreleaseBreak <> delta .
+				(readBrakeState == engaged) -> ProcReleaseBreak <> delta .
 				
 				%% open bridge (apply brakes when bridge is up)
+				openBridge .
 				
 				%% start process again for next barrier
 				BarrierProc(b, bs)
 			)
 			<>
-			%% when a barrier is closed (down), open (up) the barrier
+			%% when a barrier is closed (down), the bridge gets permission to unlock and open
+			%% now open (up) the barrier
 			(
 				%% to close the bridge...
+				
 				
 				%% release break when engaged (for now)
 				%%(readBrakeState == engaged) -> CtrlreleaseBrake <> delta .
 				
 				%% close the bridge (move down, stop when closed)
-								
+				%% closeBridge .
+				
 				%% apply brakes when not applied (for now)
 				(readBrakeState == disengaged) -> CtrlapplyBrake <> delta .
 				
 				%% lock pins when unlocked (for now)
 				sum p:Pin .					
-					(readPinState(p) == unlocked) -> Ctrllockpin(p) <> delta .
+					(readPinState(p) == unlocked) -> ProcLockPin(p) <> delta .
 				
 				%% open barriers
 				openBarrier(b) .
 				
 				sum s:StopSign .  
 					%% deactivate stopsign if activated
-					(readStopSignState(s) == on) -> CtrldeactivateStopSign(s) <> delta . 
+					(readStopSignState(s) == on) -> ProcDeactivateStopSign(s) <> delta . 
 				BarrierProc(b, bs)
 			)		
 		);
@@ -108,7 +113,12 @@ init
   allow(
     { openBarrier, closeBarrier },
     comm(
-      { UIactivateStopSign|CtrlactivateStopSign -> close, UIlockPin|CtrllockPin -> open },
+      { UserActivateStopSign|ProcActivateStopSign -> close, UserLockPin|ProcLockPin -> open },
       User || BarrierProc(B1, Up)  || BarrierProc(B2, Up)  || BarrierProc(B3, Up)  || BarrierProc(B4, Up)
 		   || BarrierProc(B1, Down)|| BarrierProc(B2, Down)|| BarrierProc(B3, Down)|| BarrierProc(B4, Down)
   ) ) ;
+  
+  
+  
+
+
