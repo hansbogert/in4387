@@ -1,0 +1,70 @@
+sort Lock = struct Locked | Unlocked;
+     Bridge_Move = struct BridgeMoveUp | BridgeMoveDown | BridgeMoveStop;
+     Bridge_Position = struct BridgeUp | BridgeDown;
+     Barrier_Position = struct BarrierUp | BarrierDown;
+     Barrier_Move = struct BarrierMoveUp | BarrierMoveDown;
+     Lock_Pin = struct L1 | L2;
+     Lock_Pins = Lock_Pin -> Lock;
+		
+act proc_lock_pin_motor: Lock_Pin # Lock;
+    user_lock_pin_motor: Lock_Pin # Lock;
+    comm_lock_pin_motor: Lock_Pin # Lock;
+    proc_lock_pins_change;
+    comm_lock_pins_change;
+    proc_lock_pins_unlocked;
+    proc_lock_pins_locked;
+
+    user_motor_action: Bridge_Move;
+    proc_motor_action: Bridge_Move;
+    comm_motor_action: Bridge_Move;
+    proc_bridge_move;
+    comm_bridge_move;
+
+    proc_bridge_down, proc_bridge_up;    
+
+    proc_barrier_down_pins;
+    proc_barrier_move: Barrier_Move;
+    user_barrier_move: Barrier_Move;
+    comm_barrier_move: Barrier_Move;
+    proc_barrier_move_up;
+    comm_barrier_move_up;
+
+map initLockPins: Lock_Pin -> Lock;
+var p: Lock_Pin;
+eqn initLockPins(p) = Locked;
+
+proc
+  LockPinMotors(motor: Lock_Pins) = 
+      sum l: Lock_Pin, s: Lock . (motor(l) != s) -> proc_lock_pins_change . proc_lock_pin_motor(l, s) . 
+        LockPinMotors(motor[l->s])
+      + !(exists l: Lock_Pin . motor(l) == Locked) -> proc_lock_pins_unlocked . LockPinMotors(motor)
+      + !(exists l: Lock_Pin . motor(l) == Unlocked) -> proc_lock_pins_locked . LockPinMotors(motor);
+
+  Bridge(position: Bridge_Position) =
+        (position == BridgeDown) -> proc_bridge_move . proc_motor_action(BridgeMoveUp) . Bridge(BridgeUp)
+      + (position == BridgeDown) -> proc_bridge_down . Bridge(BridgeDown)
+      + (position == BridgeUp) -> proc_bridge_move . proc_motor_action(BridgeMoveDown) . Bridge(BridgeDown)
+      + (position == BridgeUp) -> proc_bridge_up . Bridge(BridgeUp);
+
+  Barriers(barpos: Barrier_Position) =
+        (barpos == BarrierDown) -> proc_barrier_down_pins . Barriers(BarrierDown)
+      + (barpos == BarrierDown) -> proc_barrier_move_up . proc_barrier_move(BarrierMoveUp) . Barriers(BarrierUp)
+      + (barpos == BarrierUp) -> proc_barrier_move(BarrierMoveDown) . Barriers(BarrierDown);
+
+  User = 
+        sum l: Lock_Pin, s: Lock . user_lock_pin_motor(l, s) . User
+      + sum m: Bridge_Move . user_motor_action(m) . User
+      + sum b: Barrier_Move . user_barrier_move(b) . User;
+
+init
+  allow(
+    { comm_lock_pins_change, comm_lock_pin_motor, comm_bridge_move, comm_motor_action, comm_barrier_move_up, comm_barrier_move },
+    comm(
+      { proc_lock_pins_change|proc_barrier_down_pins -> comm_lock_pins_change,
+        user_lock_pin_motor|proc_lock_pin_motor -> comm_lock_pin_motor,
+        proc_bridge_move|proc_lock_pins_unlocked -> comm_bridge_move,
+        user_motor_action|proc_motor_action -> comm_motor_action,
+        proc_barrier_move_up|proc_lock_pins_locked -> comm_barrier_move_up,
+        user_barrier_move|proc_barrier_move -> comm_barrier_move }
+      , LockPinMotors(initLockPins) || Bridge(BridgeDown) || Barriers(BarrierUp) || User
+  ) ) ;
