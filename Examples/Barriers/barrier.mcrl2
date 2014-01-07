@@ -3,7 +3,7 @@
 
 sort 	
 	Barrier		= struct B1|B2|B3|B4;
-	BarrierState	= struct Up|Down;
+	BarrierState= struct Up|Down;
 	BBState		= Barrier -> BarrierState;
 	
 	StopSign		= struct S1|S2|S3|S4;
@@ -40,6 +40,7 @@ act
 act switchOffSigns, switchOnSigns, closeBarriers, openBridge, closeBridge;
 
 map setAllUp: Barrier -> BarrierState;
+	setAllDown: Barrier -> BarrierState;
 var x: Barrier;
 eqn setAllUp(x) = Up;
 	
