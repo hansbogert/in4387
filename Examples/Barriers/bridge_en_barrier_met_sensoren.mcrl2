@@ -13,7 +13,7 @@ sort
 	 
 	 Barrier_Sensor = struct B1Up|B1Down|B2Up|B2Down|B3Up|B3Down|B4Up|B4Down;
 	 Barrier_Sensor_Value = struct Detected|Notdected;
-	 Barriers_Sensors = Barrier_Sensor -> Barrier_Sensor_Value;
+	 Barrier_Sensors = Barrier_Sensor -> Barrier_Sensor_Value;
 
      Lock = struct Locked | Unlocked; 
      Lock_Pin = struct L1 | L2;
@@ -97,9 +97,9 @@ proc
   BarrierSensor(barriersensors: Barrier_Sensors) =
      sum b: Barrier_Sensor, s: Barrier_Sensor_Value . (barriersensors(b) != s) -> proc_barrier_value(b, s) . 
            BarrierSensor(barriersensors[b->s])
-      + ((barriersensors(B1Down) == Detected) && (barriersensors(B2Down) == Detected)
+      + ((barriersensors(B1Down) == Detected) && (barriersensors(B2Down) == Detected) &&
 			(barriersensors(B3Down) == Detected) && (barriersensors(B4Down) == Detected)) -> proc_sensor_barrier_down . BarrierSensor(barriersensors)
-      + ((barriersensors(B1Up) == Detected) && (barriersensors(B2Up) == Detected)
+      + ((barriersensors(B1Up) == Detected) && (barriersensors(B2Up) == Detected) &&
 			(barriersensors(B3Up) == Detected) && (barriersensors(B4Up) == Detected)) -> proc_sensor_barrier_up . BarrierSensor(barriersensors);
  
   Bridge(position: Bridge_Position) =
@@ -133,7 +133,7 @@ init
   allow(
     { comm_lock_pins_change, comm_lock_pin_motor, comm_bridge_move, comm_motor_action, comm_barrier_move_pins, comm_barrier_move },
     comm(
-      { %voorwaarde 1: the lockpinnen mogen veranderen als de Barriers naar beneden staan (ook sensoren) de brug omlaag is gestuurd en de sensoren aangeven dat de brug omlaag staat
+      { %voorwaarde 1: the lockpinnen mogen veranderen als de Barriers naar beneden staan (ook barrier sensoren) de brug omlaag is gestuurd en de sensoren aangeven dat de brug omlaag staat
         proc_lock_pins_change|proc_barrier_down|proc_sensor_barrier_down|proc_bridge_down|proc_sensor_bridge_down -> comm_lock_pins_change,
         %voorwaarde 2: zodra de User en de LockPins een LockPin actie goedkeuren kan deze gebeuren
         user_lock_pin_motor|proc_lock_pin_motor -> comm_lock_pin_motor,
@@ -149,5 +149,5 @@ init
         sensor_bridge_value|proc_bridge_value -> comm_bridge_value,
 		%voorwaarde 8: zodra de barrier sensor en de proc de actie goedkeuren kan deze gebeuren
 		sensor_barrier_value|proc_barrier_value -> comm_barrier_value }
-      , LockPinMotors(initLockPins) || Bridge(BridgeDown) || BarrierProcess(initBarriers) || BridgeSensor(initBridgeSensors) || BarrirSensor(initBarrierSensors) || Sensors || User
+      , LockPinMotors(initLockPins) || Bridge(BridgeDown) || BarrierProcess(initBarriers) || BridgeSensor(initBridgeSensors) || BarrierSensor(initBarrierSensors) || Sensors || User
   ) ) ;
