@@ -1,0 +1,7 @@
+% 3. The locking pins are only allowed to unlock when the barriers are closed.
+
+
+% 8. The barriers are allowed to open when the locking pins are locked
+forall b: Barrier, p,r:Barrier_Position, 
+  [true* . comm_barrier_move(b, p) . comm_barrier_move_pins . !comm_barrier_move(b, r)*
+  comm_barrier_move(b, r)] val(p == r)
