@@ -1,5 +1,6 @@
 % 3. The locking pins are only allowed to unlock when the barriers are closed.
-
+% action b may not happen after an action c, unless an action a occurs after this c and before this b
+[(!c)*.c.((!a && !b)* + a.(!c)*.c)*.b]false
 
 % 8. The barriers are allowed to open when the locking pins are locked
 forall b: Barrier, p,r:Barrier_Position, 

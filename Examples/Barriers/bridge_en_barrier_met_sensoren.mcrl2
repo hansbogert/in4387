@@ -60,19 +60,21 @@ map initLockPins: Lock_Pin -> Lock;
     initBarriers: Barrier -> Barrier_Position;
     initBridgeSensors: Bridge_Sensor -> Bridge_Sensor_Value;
 %------
-	initBarrierSensors: Barrier_Sensor -> Barrier_Sensor_Value;
+    initBarrierSensorsUp: Barrier_Sensor -> Barrier_Sensor_Value;
+    initBarrierSensorsDown: Barrier_Sensor -> Barrier_Sensor_Value;
 %------
 var p: Lock_Pin;
     b: Barrier;
     bs: Bridge_Sensor;
 %------
-	bars: Barrier_Sensor;
+    bars: Barrier_Sensor;
 %------
 eqn initLockPins(p) = Locked;
     initBarriers(b) = BarrierUp;
     initBridgeSensors(bs) = DetectBridge;
 %------
-	initBarrierSensors(bars) = Detected;
+    initBarrierSensorsUp(bars) = Detected;
+    initBarrierSensorsDown(bars) = Notdected;
 %------
 
 proc
@@ -94,14 +96,18 @@ proc
       + (forall b: Barrier . bars(b) == BarrierDown) -> proc_barrier_down . BarrierProcess(bars)
       + (forall b: Barrier . bars(b) == BarrierUp) -> proc_barrier_up . BarrierProcess(bars);
 	  
-  BarrierSensor(barriersensors: Barrier_Sensors) =
+  BarrierSensorUp(barriersensors: Barrier_Sensors) =
      sum b: Barrier_Sensor, s: Barrier_Sensor_Value . (barriersensors(b) != s) -> proc_barrier_value(b, s) . 
-           BarrierSensor(barriersensors[b->s])
-      + ((barriersensors(B1Down) == Detected) && (barriersensors(B2Down) == Detected) &&
-			(barriersensors(B3Down) == Detected) && (barriersensors(B4Down) == Detected)) -> proc_sensor_barrier_down . BarrierSensor(barriersensors)
+           BarrierSensorUp(barriersensors[b->s])
       + ((barriersensors(B1Up) == Detected) && (barriersensors(B2Up) == Detected) &&
-			(barriersensors(B3Up) == Detected) && (barriersensors(B4Up) == Detected)) -> proc_sensor_barrier_up . BarrierSensor(barriersensors);
+			(barriersensors(B3Up) == Detected) && (barriersensors(B4Up) == Detected)) -> proc_sensor_barrier_up . BarrierSensorUp(barriersensors);
  
+  BarrierSensorDown(barriersensors: Barrier_Sensors) =
+     sum b: Barrier_Sensor, s: Barrier_Sensor_Value . (barriersensors(b) != s) -> proc_barrier_value(b, s) . 
+           BarrierSensorDown(barriersensors[b->s])
+      + ((barriersensors(B1Down) == Notdected) && (barriersensors(B2Down) == Notdected) &&
+			(barriersensors(B3Down) == Notdected) && (barriersensors(B4Down) == Notdected)) -> proc_sensor_barrier_down . BarrierSensorDown(barriersensors);
+  
   Bridge(position: Bridge_Position) =
       %simpele versie van de Bridge
         (position == BridgeDown) -> proc_bridge_move . proc_motor_action(BridgeMoveUp) . proc_motor_action(BridgeMoveStop) .Bridge(BridgeUp)
@@ -149,5 +155,5 @@ init
         sensor_bridge_value|proc_bridge_value -> comm_bridge_value,
 		%voorwaarde 8: zodra de barrier sensor en de proc de actie goedkeuren kan deze gebeuren
 		sensor_barrier_value|proc_barrier_value -> comm_barrier_value }
-      , LockPinMotors(initLockPins) || Bridge(BridgeDown) || BarrierProcess(initBarriers) || BridgeSensor(initBridgeSensors) || BarrierSensor(initBarrierSensors) || Sensors || User
+      , LockPinMotors(initLockPins) || Bridge(BridgeDown) || BarrierProcess(initBarriers) || BridgeSensor(initBridgeSensors) || BarrierSensorUp(initBarrierSensorsUp) || BarrierSensorDown(initBarrierSensorsDown) || Sensors || User
   ) ) ;
