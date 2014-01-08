@@ -1,0 +1,2 @@
+% 1. The stop-signs lights are allowed to switch on only when the pre-sign light are on
+!allPresignOn => ( forall p:StopSign . <true* . comm_preSigns_switch(s, on)> false )

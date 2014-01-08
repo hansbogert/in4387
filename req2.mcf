@@ -1,0 +1,2 @@
+% 2. The barriers are only allowed to close when the stop-signs are on
+!allPresignOn => ( forall 
