@@ -1,31 +1,48 @@
 sort  
-     Bridge_Move = struct BridgeMoveUp | BridgeMoveDown | BridgeMoveStop;
-     Bridge_Position = struct BridgeUp | BridgeDown;
+    Sign_Status = struct on | off;
+    PreSign  = struct P1 | P2 | P3 | P4;
+    StopSign = struct S1 | S2 | S3 | S4;
+    PreSigns = PreSign -> Sign_Status;
+    StopSigns = StopSign -> Sign_Status;
 
-     Bridge_Brake = struct BrakeEngaged | BrakeDisEngaged;
+    Barrier = struct B1 | B2 | B3 | B4;
+    Barrier_Position = struct BarrierUp | BarrierDown;
+    Barrier_Move = struct BarrierMoveUp | BarrierMoveDown;
+    Barriers = Barrier -> Barrier_Position;
 
-     Bridge_Sensor_Up = struct BU1 | BU2;
-     Bridge_Sensor_Down = struct BD1 | BD2;
-     Bridge_Sensor_Value = struct DetectBridge | NoDetectBridge;
-     Bridge_Sensors_Up = Bridge_Sensor_Up -> Bridge_Sensor_Value;
-     Bridge_Sensors_Down = Bridge_Sensor_Down -> Bridge_Sensor_Value;
+    Barrier_Sensor_Up = struct B1Up | B2Up | B3Up | B4Up;
+    Barrier_Sensor_Down = struct B1Down | B2Down | B3Down | B4Down;
+    Barrier_Sensor_Value = struct DetectBarrier | NoDetectBarrier;
+    Barrier_Sensors_Up = Barrier_Sensor_Up -> Barrier_Sensor_Value;
+    Barrier_Sensors_Down = Barrier_Sensor_Down -> Barrier_Sensor_Value;
 
-     Barrier = struct B1 | B2 | B3 | B4;
-     Barrier_Position = struct BarrierUp | BarrierDown;
-     Barrier_Move = struct BarrierMoveUp | BarrierMoveDown;
-     Barriers = Barrier -> Barrier_Position;
+    Lock = struct Locked | Unlocked; 
+    Lock_Pin = struct L1 | L2;
+    Lock_Pins = Lock_Pin -> Lock;
 
-     Barrier_Sensor_Up = struct B1Up | B2Up | B3Up | B4Up;
-     Barrier_Sensor_Down = struct B1Down | B2Down | B3Down | B4Down;
-     Barrier_Sensor_Value = struct DetectBarrier | NoDetectBarrier;
-     Barrier_Sensors_Up = Barrier_Sensor_Up -> Barrier_Sensor_Value;
-     Barrier_Sensors_Down = Barrier_Sensor_Down -> Barrier_Sensor_Value;
+    Bridge_Move = struct BridgeMoveUp | BridgeMoveDown | BridgeMoveStop;
+    Bridge_Position = struct BridgeUp | BridgeDown;
 
-     Lock = struct Locked | Unlocked; 
-     Lock_Pin = struct L1 | L2;
-     Lock_Pins = Lock_Pin -> Lock;
+    Bridge_Brake = struct BrakeEngaged | BrakeDisEngaged;
+
+    Bridge_Sensor_Up = struct BU1 | BU2;
+    Bridge_Sensor_Down = struct BD1 | BD2;
+    Bridge_Sensor_Value = struct DetectBridge | NoDetectBridge;
+    Bridge_Sensors_Up = Bridge_Sensor_Up -> Bridge_Sensor_Value;
+    Bridge_Sensors_Down = Bridge_Sensor_Down -> Bridge_Sensor_Value;
 		
 act driveway_open;
+
+    proc_signs_stop_ready;
+    proc_preSigns_switch: PreSign # Sign_Status;
+    proc_stopSigns_switch: StopSign # Sign_Status;
+    proc_stopSigns_turn_off;
+    user_preSigns_switch: PreSign # Sign_Status;
+    user_stopSigns_switch: StopSign # Sign_Status;
+    comm_preSigns_switch: PreSign # Sign_Status;
+    comm_stopSigns_switch: StopSign # Sign_Status;
+    comm_stopSigns_on;
+    comm_stopSigns_turn_off;
 
     proc_barrier_down, proc_barrier_up;
     proc_barrier_move: Barrier # Barrier_Position;
@@ -38,6 +55,7 @@ act driveway_open;
 
     proc_barrier_sensor_up_change, proc_barrier_sensor_down_change;
     comm_barrier_sensor_up_change, comm_barrier_sensor_down_change;
+
     sensor_barrier_up_value: Barrier_Sensor_Up # Barrier_Sensor_Value;
     proc_barrier_up_value: Barrier_Sensor_Up # Barrier_Sensor_Value;
     comm_barrier_up_value: Barrier_Sensor_Up # Barrier_Sensor_Value;
@@ -101,13 +119,16 @@ act driveway_open;
     proc_bridge_sensors_down_change; 
     comm_bridge_sensors_down_change;
     
-map initLockPins: Lock_Pin -> Lock;
+map initPreSigns : PreSign  -> Sign_Status;
+    initStopSigns: StopSign -> Sign_Status;
+    initLockPins: Lock_Pin -> Lock;
     initBarriers: Barrier -> Barrier_Position;
     initBridgeSensorsUp: Bridge_Sensor_Up -> Bridge_Sensor_Value;
     initBridgeSensorsDown: Bridge_Sensor_Down -> Bridge_Sensor_Value;
     initBarrierSensorsUp: Barrier_Sensor_Up -> Barrier_Sensor_Value;
     initBarrierSensorsDown: Barrier_Sensor_Down -> Barrier_Sensor_Value;
-var p: Lock_Pin;
+var 
+    p: Lock_Pin;
     b: Barrier;
     bd: Bridge_Sensor_Down;
     bu: Bridge_Sensor_Up;
@@ -119,6 +140,8 @@ eqn initLockPins(p) = Locked;
     initBridgeSensorsUp(bu) = NoDetectBridge;
     initBarrierSensorsUp(bau) = DetectBarrier;
     initBarrierSensorsDown(bad) = NoDetectBarrier;
+    initPreSigns  = lambda x : PreSign  . off;
+    initStopSigns = lambda x : StopSign . off;
 
 proc
   LockPinMotors(motor: Lock_Pins) = 
@@ -140,7 +163,7 @@ proc
       ) 
       %sum b: Barrier, p:Barrier_Position . (bars(b) != p) -> proc_barrier_move(b, p) . proc_barrier_change . BarrierProcess(bars[b->p])
       + (forall b: Barrier . bars(b) == BarrierDown) -> proc_barrier_down . BarrierProcess()
-      + (forall b: Barrier . bars(b) == BarrierUp) -> (proc_barrier_up + driveway_open) . BarrierProcess();
+      + (forall b: Barrier . bars(b) == BarrierUp) -> proc_barrier_up . BarrierProcess();
 
   BarrierSensorDown(BarSensDown: Barrier_Sensors_Down) =
       proc_barrier_sensor_down_change . ( 
@@ -188,6 +211,26 @@ proc
       + ((downs(BD1) == DetectBridge) && (downs(BD2) == DetectBridge)) -> (proc_sensor_down_bridge_down + proc_sensor_down_bridge_down_for_lockpins) . BridgeSensorDown()
       + ((downs(BD1) == NoDetectBridge) && (downs(BD2) == NoDetectBridge)) -> proc_sensor_down_bridge_up . BridgeSensorDown();
 
+  Signs(preSigns: PreSigns, stopSigns: StopSigns) = 
+        % als alle stopsigns uit staan, mogen de preSigns aan
+        (forall s:StopSign . stopSigns(s) == off) -> 
+          sum p: PreSign, st: Sign_Status . (preSigns(p) != st) -> proc_preSigns_switch(p, st) . Signs(preSigns[p->st], stopSigns)
+        % De StopSigns mogen pas aan als alle PreSigns aan staan
+      + (forall p: PreSign . preSigns(p) == on) -> 
+          (sum s: StopSign . (stopSigns(s) == off) -> proc_stopSigns_switch(s, on) . Signs(preSigns, stopSigns[s->on]))
+        % als alle StopSigns aanstaan, mogen de preSigns uit
+      + (forall s: StopSign . stopSigns(s) == on) -> 
+          (sum p: PreSign . (preSigns(p) == on) -> proc_preSigns_switch(p, off) . Signs(preSigns[p->off], stopSigns))
+        % als alle stopsigns aanstaan en! alle presigns uit, dan zijn we in de speciale state waar de barriers omlaag zouden mogen 
+      + (forall p: PreSign, s: StopSign  . preSigns(p) == off && stopSigns(s) == on) -> 
+          proc_signs_stop_ready . Signs()
+        % als de pre en stop signs uitstaan kunnen de auto's rijden 
+      + (forall p: PreSign, s: StopSign  . preSigns(p) == off && stopSigns(s) == off) -> 
+          driveway_open . Signs()   
+        % als alle preSigns uit staan en de barriers staan omhoog dan mogen de stopSigns ook uit
+      + (forall p: PreSign . preSigns(p) == off) ->
+          (sum s: StopSign . (stopSigns(s) == on) -> proc_stopSigns_turn_off . proc_stopSigns_switch(s, off) . Signs(preSigns, stopSigns[s->off]));
+
   Sensors = 
       %alle sensoren kunnen op elk moment kapot zijn en een willekeurige waarde afgeven
         sum bd: Bridge_Sensor_Down, s: Bridge_Sensor_Value . sensor_bridge_sensor_down_action(bd, s) . Sensors
@@ -201,7 +244,9 @@ proc
 
   User = 
       %de gebruiker kan altijd alle knoppen indrukken:
-        sum l: Lock_Pin, s: Lock . user_lock_pin_motor(l, s) . User
+        sum p: PreSign, st: Sign_Status . user_preSigns_switch(p, st) . User
+      + sum s: StopSign, st: Sign_Status . user_stopSigns_switch(s, st) . User
+      + sum l: Lock_Pin, s: Lock . user_lock_pin_motor(l, s) . User
       + sum m: Bridge_Move . user_motor_action(m) . User      
       + sum b: Barrier, p: Barrier_Position . user_barrier_move(b, p) . User
       + sum bb: Bridge_Brake . user_bridge_brake_action(bb) . User;
@@ -222,6 +267,7 @@ proc
 
 init
   allow( { 
+        comm_stopSigns_turn_off,
         comm_barrier_change, 
         comm_barrier_sensor_up_change,
         comm_barrier_sensor_down_change,
@@ -232,7 +278,9 @@ init
         comm_bridge_sensors_up_change,
         comm_bridge_change_to_up,
         comm_bridge_change_to_down,
-
+        
+        comm_preSigns_switch,
+        comm_stopSigns_switch,
         comm_lock_pin_motor,
         comm_motor_action,
         comm_barrier_move,
@@ -246,9 +294,11 @@ init
         driveway_open
     },
     comm(
-      { %voorwaarde 0: de Barrier mogen pas omhoog zodra de Pinnen gelockt zijn
-        proc_barrier_change|proc_lock_pins_locked -> comm_barrier_change,
-
+      { %voorwaarde x: de stop signs mogen alleen worden uitgezet als de barriers omhoog staan
+        proc_stopSigns_turn_off|proc_barrier_up|proc_sensor_barrier_down_detect_barrier_up|proc_sensor_barrier_up_detect_barrier_up -> comm_stopSigns_turn_off,
+        %voorwaarde 0: de Barrier mogen pas omhoog zodra de Pinnen gelockt zijn
+        proc_signs_stop_ready|proc_barrier_change|proc_lock_pins_locked -> comm_barrier_change,
+        
         proc_barrier_sensor_up_change|proc_barrier_change_to_sensor_up_change -> comm_barrier_sensor_up_change,
         
         proc_barrier_sensor_down_change|proc_barrier_change_to_sensor_down_change -> comm_barrier_sensor_down_change,
@@ -270,6 +320,8 @@ init
         proc_sensor_down_bridge_up|proc_sensor_up_bridge_up|proc_bridge_change_to_down -> comm_bridge_change_to_down,
 
         %user input
+        user_preSigns_switch|proc_preSigns_switch -> comm_preSigns_switch,
+        user_stopSigns_switch|proc_stopSigns_switch -> comm_stopSigns_switch,
         user_lock_pin_motor|proc_lock_pin_motor -> comm_lock_pin_motor,
         user_motor_action|proc_motor_action -> comm_motor_action,
         user_barrier_move|proc_barrier_move -> comm_barrier_move,
@@ -281,7 +333,8 @@ init
         sensor_barrier_up_value|proc_barrier_up_value -> comm_barrier_up_value,
         sensor_barrier_down_value|proc_barrier_down_value -> comm_barrier_down_value
       } , 
-           LockPinMotors(initLockPins) 
+           Signs(initPreSigns,initStopSigns)
+        || LockPinMotors(initLockPins) 
         || Bridge(BridgeDown) 
         || BarrierProcess(initBarriers) 
         || BridgeBrake(BrakeEngaged) 
