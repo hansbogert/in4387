@@ -106,6 +106,8 @@ act driveway_open;
     proc_sensor_bridge_up_for_bridge_motor;
     proc_sensor_bridge_down_for_bridge_motor;
 
+    proc_bridge_down;
+    proc_bridge_up;
     proc_sensor_bridge_down;
     proc_sensor_bridge_up;
     proc_bridge_sensors;
@@ -170,41 +172,45 @@ proc
             (forall bd: Barrier_Sensor_Down . BarSensDown(bd) == DetectBarrier) ->
                  (forall bu: Barrier_Sensor_Up . barSensUp(bu) == NoDetectBarrier) ->
                      proc_barrier_down . BarrierProcess()
+
       + (forall b: Barrier . bars(b) == BarrierUp) ->
             (forall bd: Barrier_Sensor_Down . BarSensDown(bd) == NoDetectBarrier) ->
                  (forall bu: Barrier_Sensor_Up . barSensUp(bu) == DetectBarrier) ->         
                      proc_barrier_up . BarrierProcess()
       ;
 
-  Bridge(position: Bridge_Position) =
+  Bridge(position: Bridge_Position, downs: Bridge_Sensors_Down, ups: Bridge_Sensors_Up) =
       %simpele versie van de Bridge
       proc_bridge_change . (
-        ((position == BridgeDown) -> proc_bridge_change_to_up . proc_motor_action(BridgeMoveUp) . proc_motor_action(BridgeMoveStop) . Bridge(BridgeUp))    
-      + ((position == BridgeUp) -> proc_bridge_change_to_down . proc_motor_action(BridgeMoveDown) . proc_motor_action(BridgeMoveStop) . Bridge(BridgeDown))
-      + ((proc_bridge_change_for_sensors_down + proc_bridge_change_for_sensors_up) . Bridge() ) + Bridge()
+           (position == BridgeDown) ->
+            ((downs(BD1) == DetectBridge) && (downs(BD2) == DetectBridge)) ->
+                ((ups(BU1) == NoDetectBridge) && (ups(BU2) == NoDetectBridge)) ->
+                    proc_motor_action(BridgeMoveUp) . proc_motor_action(BridgeMoveStop) . Bridge(BridgeUp, downs, ups)  
+         + (position == BridgeUp) ->
+            ((downs(BD1) == NoDetectBridge) && (downs(BD2) == NoDetectBridge)) ->
+                ((ups(BU1) == DetectBridge) && (ups(BU2) == DetectBridge)) ->  
+                    proc_motor_action(BridgeMoveDown) . proc_motor_action(BridgeMoveStop) . Bridge(BridgeDown, downs, ups)
+         + sum bu: Bridge_Sensor_Up, su: Bridge_Sensor_Value . (ups(bu) != su) -> proc_bridge_sensor_up_action(bu, su). Bridge(position, downs, ups[bu->su])
+         + sum bd: Bridge_Sensor_Down, sd: Bridge_Sensor_Value . (downs(bd) != sd) -> proc_bridge_sensor_down_action(bd, sd) . Bridge(position, downs[bd->sd], ups)
+         + Bridge()
       )
-      + (position == BridgeDown) -> proc_bridge_down_for_lockpins . Bridge();
+      + (position == BridgeDown) ->
+            ((downs(BD1) == DetectBridge) && (downs(BD2) == DetectBridge)) ->
+                ((ups(BU1) == NoDetectBridge) && (ups(BU2) == NoDetectBridge)) ->
+                    proc_bridge_down . Bridge()
 
-  BridgeBrake(brake: Bridge_Brake) =
+      + (position == BridgeUp) ->
+            ((downs(BD1) == NoDetectBridge) && (downs(BD2) == NoDetectBridge)) ->
+                ((ups(BU1) == DetectBridge) && (ups(BU2) == DetectBridge)) ->
+                    proc_bridge_up . Bridge()
+      ; 
+
+ BridgeBrake(brake: Bridge_Brake) =
       proc_brake_change . ( 
         (sum bb: Bridge_Brake . (bb != brake) ->  proc_bridge_brake_action(bb) . BridgeBrake(bb))
       + BridgeBrake() )
       + (brake == BrakeDisEngaged) -> proc_bridge_brake_disengaged . BridgeBrake()
       + (brake == BrakeEngaged) ->  proc_bridge_brake_engaged . BridgeBrake();
-
-  BridgeSensorUp(ups: Bridge_Sensors_Up) =
-      proc_bridge_sensors_up_change . (
-        sum bu: Bridge_Sensor_Up, su: Bridge_Sensor_Value . (ups(bu) != su) -> proc_bridge_sensor_up_action(bu, su). BridgeSensorUp(ups[bu->su])
-      + BridgeSensorUp() )
-      + ((ups(BU1) == DetectBridge) && (ups(BU2) == DetectBridge)) -> proc_sensor_up_bridge_up . BridgeSensorUp()
-      + ((ups(BU1) == NoDetectBridge) && (ups(BU2) == NoDetectBridge)) -> (proc_sensor_up_bridge_down + proc_sensor_up_bridge_down_for_lockpins) . BridgeSensorUp();
-
-  BridgeSensorDown(downs: Bridge_Sensors_Down) =
-      proc_bridge_sensors_down_change . (
-        sum bd: Bridge_Sensor_Down, sd: Bridge_Sensor_Value . (downs(bd) != sd) -> proc_bridge_sensor_down_action(bd, sd) . BridgeSensorDown(downs[bd->sd])
-      + BridgeSensorDown() )
-      + ((downs(BD1) == DetectBridge) && (downs(BD2) == DetectBridge)) -> (proc_sensor_down_bridge_down + proc_sensor_down_bridge_down_for_lockpins) . BridgeSensorDown()
-      + ((downs(BD1) == NoDetectBridge) && (downs(BD2) == NoDetectBridge)) -> proc_sensor_down_bridge_up . BridgeSensorDown();
 
   Signs(preSigns: PreSigns, stopSigns: StopSigns) = 
         % als alle stopsigns uit staan, mogen de preSigns aan
@@ -235,10 +241,10 @@ proc
       %De sensoren kunnnen alleen in groepen in en uitgeschakeld worden
         sensor_bridge_sensor_down_action(BD1, DetectBridge) . sensor_bridge_sensor_down_action(BD2, DetectBridge) . sensor_bridge_sensor_up_action(BU1, NoDetectBridge) . sensor_bridge_sensor_up_action(BU2, NoDetectBridge) . Sensors
       + sensor_bridge_sensor_down_action(BD1, NoDetectBridge) . sensor_bridge_sensor_down_action(BD2, NoDetectBridge) . sensor_bridge_sensor_up_action(BU1, DetectBridge) . sensor_bridge_sensor_up_action(BU2, DetectBridge) . Sensors
-      %+ sensor_barrier_down_value(B1Down, DetectBarrier) . sensor_barrier_down_value(B2Down, DetectBarrier) . sensor_barrier_down_value(B3Down, DetectBarrier) . sensor_barrier_down_value(B4Down, DetectBarrier) . Sensors
-      %+ sensor_barrier_down_value(B1Down, NoDetectBarrier) . sensor_barrier_down_value(B2Down, NoDetectBarrier) . sensor_barrier_down_value(B3Down, NoDetectBarrier) . sensor_barrier_down_value(B4Down, NoDetectBarrier) . Sensors
-      %+ sensor_barrier_up_value(B1Up, DetectBarrier) . sensor_barrier_up_value(B2Up, DetectBarrier) . sensor_barrier_up_value(B3Up, DetectBarrier) . sensor_barrier_up_value(B4Up, DetectBarrier) . Sensors
-      %+ sensor_barrier_up_value(B1Up, NoDetectBarrier) . sensor_barrier_up_value(B2Up, NoDetectBarrier) . sensor_barrier_up_value(B3Up, NoDetectBarrier) . sensor_barrier_up_value(B4Up, NoDetectBarrier) . Sensors
+      + sensor_barrier_down_value(B1Down, DetectBarrier) . sensor_barrier_down_value(B2Down, DetectBarrier) . sensor_barrier_down_value(B3Down, DetectBarrier) . sensor_barrier_down_value(B4Down, DetectBarrier) . Sensors
+      + sensor_barrier_down_value(B1Down, NoDetectBarrier) . sensor_barrier_down_value(B2Down, NoDetectBarrier) . sensor_barrier_down_value(B3Down, NoDetectBarrier) . sensor_barrier_down_value(B4Down, NoDetectBarrier) . Sensors
+      + sensor_barrier_up_value(B1Up, DetectBarrier) . sensor_barrier_up_value(B2Up, DetectBarrier) . sensor_barrier_up_value(B3Up, DetectBarrier) . sensor_barrier_up_value(B4Up, DetectBarrier) . Sensors
+      + sensor_barrier_up_value(B1Up, NoDetectBarrier) . sensor_barrier_up_value(B2Up, NoDetectBarrier) . sensor_barrier_up_value(B3Up, NoDetectBarrier) . sensor_barrier_up_value(B4Up, NoDetectBarrier) . Sensors
       ;
 
 
@@ -271,10 +277,6 @@ init
         comm_lock_pins_change,
         comm_brake_change,
         comm_bridge_change,
-        comm_bridge_sensors_down_change,
-        comm_bridge_sensors_up_change,
-        comm_bridge_change_to_up,
-        comm_bridge_change_to_down,
         
         comm_preSigns_switch,
         comm_stopSigns_switch,
@@ -289,29 +291,19 @@ init
         comm_barrier_down_value,
 
         driveway_open,
-        proc_bridge_change_to_down       
+        proc_bridge_up      
     },
     comm(
       { %voorwaarde x: de stop signs mogen alleen worden uitgezet als de barriers omhoog staan
         proc_stopSigns_turn_off|proc_barrier_up -> comm_stopSigns_turn_off,
         %voorwaarde 0: de Barrier mogen pas omhoog zodra de Pinnen gelockt zijn
-        proc_signs_stop_ready|proc_barrier_change|proc_lock_pins_locked -> comm_barrier_change,
-        
+        proc_signs_stop_ready|proc_barrier_change|proc_lock_pins_locked -> comm_barrier_change,        
         %voorwaarde 1: de lockpinnen mogen alleen veranderen van status als de brug en de barriers omlaag staan en de rem op de brug staat
-        proc_lock_pins_change|proc_bridge_brake_engaged|proc_barrier_down|proc_sensor_up_bridge_down_for_lockpins|proc_sensor_down_bridge_down_for_lockpins
-        |proc_bridge_down_for_lockpins -> comm_lock_pins_change,
+        proc_lock_pins_change|proc_bridge_brake_engaged|proc_barrier_down|proc_bridge_down -> comm_lock_pins_change,
         %voorwaarde 2: de rem mag alleen van status veranderen als de lockpinnen unlocked zijn.		
         proc_lock_pins_unlocked|proc_brake_change -> comm_brake_change,
         %voorwaarde 3: de brug mag alleen aangestuurd worden als de rem en de lockpinnen ontgrendeld zijn.
         proc_bridge_change|proc_bridge_brake_disengaged|proc_lock_pins_unlocked_for_bridge_change -> comm_bridge_change,
-        %voorwaarde 4: De brug sensoren mogen alleen van status veranderen als de brug mag bewegen
-        proc_bridge_change_for_sensors_down|proc_bridge_sensors_down_change -> comm_bridge_sensors_down_change,
-        %voorwaarde 4: De brug sensoren mogen alleen van status veranderen als de brug mag bewegen
-        proc_bridge_change_for_sensors_up|proc_bridge_sensors_up_change -> comm_bridge_sensors_up_change,
-        %voorwaarde 5: de brug mag alleen omhoog worden gestuurd als deze momenteel beneden is.
-        proc_sensor_down_bridge_down|proc_sensor_up_bridge_down|proc_bridge_change_to_up -> comm_bridge_change_to_up,
-        %voorwaarde 6: de brug mag alleen omlaag worden gestuurd als deze momenteel boven is.
-        proc_sensor_down_bridge_up|proc_sensor_up_bridge_up|proc_bridge_change_to_down -> comm_bridge_change_to_down,
 
         %user input
         user_preSigns_switch|proc_preSigns_switch -> comm_preSigns_switch,
@@ -329,11 +321,9 @@ init
       } , 
            Signs(initPreSigns,initStopSigns)
         || LockPinMotors(initLockPins) 
-        || Bridge(BridgeDown) 
+        || Bridge(BridgeDown, initBridgeSensorsDown, initBridgeSensorsUp) 
         || BarrierProcess(initBarriers, initBarrierSensorsDown, initBarrierSensorsUp) 
-        || BridgeBrake(BrakeEngaged) 
-        || BridgeSensorUp(initBridgeSensorsUp) 
-        || BridgeSensorDown(initBridgeSensorsDown) 
+        || BridgeBrake(BrakeEngaged)
         || Sensors 
         || User
   ) ) ;
