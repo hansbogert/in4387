@@ -154,33 +154,28 @@ proc
       + (forall l: Lock_Pin . motor(l) == Unlocked) -> (proc_lock_pins_unlocked + proc_lock_pins_unlocked_for_bridge_change ). LockPinMotors()
       + (forall l: Lock_Pin . motor(l) == Locked) -> proc_lock_pins_locked . LockPinMotors();
 
-  BarrierProcess(bars: Barriers) =
+  BarrierProcess(bars: Barriers, BarSensDown: Barrier_Sensors_Down, barSensUp: Barrier_Sensors_Up) =
   % proc_barrier_move_pins beperkt de explosie van states door te zeggen dat barriers alleen mogen bewegen als de lockpinnen gelocked zijn
   % dit is te zien in de eerste comm voorwaarde 5
       proc_barrier_change . (
-  	sum b: Barrier, p:Barrier_Position . (bars(b) != p) -> proc_barrier_move(b, p) . BarrierProcess(bars[b->p])
-         + (( proc_barrier_change_to_sensor_up_change + proc_barrier_change_to_sensor_down_change ) . BarrierProcess() ) + BarrierProcess() 
+           sum b: Barrier, p:Barrier_Position . (bars(b) != p) -> proc_barrier_move(b, p) . BarrierProcess(bars[b->p], BarSensDown, barSensUp)
+         + sum bd: Barrier_Sensor_Down, sd: Barrier_Sensor_Value . (BarSensDown(bd) != sd) -> proc_barrier_down_value(bd, sd) 
+           . BarrierProcess(bars, BarSensDown[bd->sd], barSensUp)
+         + sum bu: Barrier_Sensor_Up, su: Barrier_Sensor_Value . (barSensUp(bu) != su) -> proc_barrier_up_value(bu, su) 
+           . BarrierProcess(bars, BarSensDown, barSensUp[bu->su])
+         + BarrierProcess() 
       ) 
       %sum b: Barrier, p:Barrier_Position . (bars(b) != p) -> proc_barrier_move(b, p) . proc_barrier_change . BarrierProcess(bars[b->p])
-      + (forall b: Barrier . bars(b) == BarrierDown) -> proc_barrier_down . BarrierProcess()
-      + (forall b: Barrier . bars(b) == BarrierUp) -> proc_barrier_up . BarrierProcess();
+      + (forall b: Barrier . bars(b) == BarrierDown) -> 
+            (forall bd: Barrier_Sensor_Down . BarSensDown(bd) == DetectBarrier) ->
+                 (forall bu: Barrier_Sensor_Up . barSensUp(bu) == NoDetectBarrier) ->
+                     proc_barrier_down . BarrierProcess()
+      + (forall b: Barrier . bars(b) == BarrierUp) ->
+            (forall bd: Barrier_Sensor_Down . BarSensDown(bd) == NoDetectBarrier) ->
+                 (forall bu: Barrier_Sensor_Up . barSensUp(bu) == DetectBarrier) ->         
+                     proc_barrier_up . BarrierProcess()
+      ;
 
-  BarrierSensorDown(BarSensDown: Barrier_Sensors_Down) =
-      proc_barrier_sensor_down_change . ( 
-            sum bd: Barrier_Sensor_Down, sd: Barrier_Sensor_Value . (BarSensDown(bd) != sd) -> proc_barrier_down_value(bd, sd) 
-          . BarrierSensorDown(BarSensDown[bd->sd])
-          + BarrierSensorDown() )
-      + (forall bd: Barrier_Sensor_Down . BarSensDown(bd) == DetectBarrier) -> proc_sensor_barrier_down_detect_barrier_down . BarrierSensorDown()
-      + (forall bd: Barrier_Sensor_Down . BarSensDown(bd) == NoDetectBarrier) -> proc_sensor_barrier_down_detect_barrier_up . BarrierSensorDown();
-
-  BarrierSensorUp(barSensUp: Barrier_Sensors_Up) =
-      proc_barrier_sensor_up_change . (
-            sum bu: Barrier_Sensor_Up, su: Barrier_Sensor_Value . (barSensUp(bu) != su) -> proc_barrier_up_value(bu, su) 
-          . BarrierSensorUp(barSensUp[bu->su])
-          + BarrierSensorUp() )
-      + (forall bu: Barrier_Sensor_Up . barSensUp(bu) == DetectBarrier) -> proc_sensor_barrier_up_detect_barrier_up . BarrierSensorUp()
-      + (forall bu: Barrier_Sensor_Up . barSensUp(bu) == NoDetectBarrier) -> proc_sensor_barrier_up_detect_barrier_down . BarrierSensorUp();
- 
   Bridge(position: Bridge_Position) =
       %simpele versie van de Bridge
       proc_bridge_change . (
@@ -240,10 +235,11 @@ proc
       %De sensoren kunnnen alleen in groepen in en uitgeschakeld worden
         sensor_bridge_sensor_down_action(BD1, DetectBridge) . sensor_bridge_sensor_down_action(BD2, DetectBridge) . sensor_bridge_sensor_up_action(BU1, NoDetectBridge) . sensor_bridge_sensor_up_action(BU2, NoDetectBridge) . Sensors
       + sensor_bridge_sensor_down_action(BD1, NoDetectBridge) . sensor_bridge_sensor_down_action(BD2, NoDetectBridge) . sensor_bridge_sensor_up_action(BU1, DetectBridge) . sensor_bridge_sensor_up_action(BU2, DetectBridge) . Sensors
-      + sensor_barrier_down_value(B1Down, DetectBarrier) . sensor_barrier_down_value(B2Down, DetectBarrier) . sensor_barrier_down_value(B3Down, DetectBarrier) . sensor_barrier_down_value(B4Down, DetectBarrier) . Sensors
-      + sensor_barrier_down_value(B1Down, NoDetectBarrier) . sensor_barrier_down_value(B2Down, NoDetectBarrier) . sensor_barrier_down_value(B3Down, NoDetectBarrier) . sensor_barrier_down_value(B4Down, NoDetectBarrier) . Sensors
-      + sensor_barrier_up_value(B1Up, DetectBarrier) . sensor_barrier_up_value(B2Up, DetectBarrier) . sensor_barrier_up_value(B3Up, DetectBarrier) . sensor_barrier_up_value(B4Up, DetectBarrier) . Sensors
-      + sensor_barrier_up_value(B1Up, NoDetectBarrier) . sensor_barrier_up_value(B2Up, NoDetectBarrier) . sensor_barrier_up_value(B3Up, NoDetectBarrier) . sensor_barrier_up_value(B4Up, NoDetectBarrier) . Sensors;
+      %+ sensor_barrier_down_value(B1Down, DetectBarrier) . sensor_barrier_down_value(B2Down, DetectBarrier) . sensor_barrier_down_value(B3Down, DetectBarrier) . sensor_barrier_down_value(B4Down, DetectBarrier) . Sensors
+      %+ sensor_barrier_down_value(B1Down, NoDetectBarrier) . sensor_barrier_down_value(B2Down, NoDetectBarrier) . sensor_barrier_down_value(B3Down, NoDetectBarrier) . sensor_barrier_down_value(B4Down, NoDetectBarrier) . Sensors
+      %+ sensor_barrier_up_value(B1Up, DetectBarrier) . sensor_barrier_up_value(B2Up, DetectBarrier) . sensor_barrier_up_value(B3Up, DetectBarrier) . sensor_barrier_up_value(B4Up, DetectBarrier) . Sensors
+      %+ sensor_barrier_up_value(B1Up, NoDetectBarrier) . sensor_barrier_up_value(B2Up, NoDetectBarrier) . sensor_barrier_up_value(B3Up, NoDetectBarrier) . sensor_barrier_up_value(B4Up, NoDetectBarrier) . Sensors
+      ;
 
 
   User = 
@@ -272,8 +268,6 @@ init
   allow( { 
         comm_stopSigns_turn_off,
         comm_barrier_change, 
-        comm_barrier_sensor_up_change,
-        comm_barrier_sensor_down_change,
         comm_lock_pins_change,
         comm_brake_change,
         comm_bridge_change,
@@ -299,17 +293,13 @@ init
     },
     comm(
       { %voorwaarde x: de stop signs mogen alleen worden uitgezet als de barriers omhoog staan
-        proc_stopSigns_turn_off|proc_barrier_up|proc_sensor_barrier_down_detect_barrier_up|proc_sensor_barrier_up_detect_barrier_up -> comm_stopSigns_turn_off,
+        proc_stopSigns_turn_off|proc_barrier_up -> comm_stopSigns_turn_off,
         %voorwaarde 0: de Barrier mogen pas omhoog zodra de Pinnen gelockt zijn
         proc_signs_stop_ready|proc_barrier_change|proc_lock_pins_locked -> comm_barrier_change,
         
-        proc_barrier_sensor_up_change|proc_barrier_change_to_sensor_up_change -> comm_barrier_sensor_up_change,
-        
-        proc_barrier_sensor_down_change|proc_barrier_change_to_sensor_down_change -> comm_barrier_sensor_down_change,
-
         %voorwaarde 1: de lockpinnen mogen alleen veranderen van status als de brug en de barriers omlaag staan en de rem op de brug staat
         proc_lock_pins_change|proc_bridge_brake_engaged|proc_barrier_down|proc_sensor_up_bridge_down_for_lockpins|proc_sensor_down_bridge_down_for_lockpins
-        |proc_bridge_down_for_lockpins|proc_sensor_barrier_down_detect_barrier_down|proc_sensor_barrier_up_detect_barrier_down -> comm_lock_pins_change,
+        |proc_bridge_down_for_lockpins -> comm_lock_pins_change,
         %voorwaarde 2: de rem mag alleen van status veranderen als de lockpinnen unlocked zijn.		
         proc_lock_pins_unlocked|proc_brake_change -> comm_brake_change,
         %voorwaarde 3: de brug mag alleen aangestuurd worden als de rem en de lockpinnen ontgrendeld zijn.
@@ -340,12 +330,10 @@ init
            Signs(initPreSigns,initStopSigns)
         || LockPinMotors(initLockPins) 
         || Bridge(BridgeDown) 
-        || BarrierProcess(initBarriers) 
+        || BarrierProcess(initBarriers, initBarrierSensorsDown, initBarrierSensorsUp) 
         || BridgeBrake(BrakeEngaged) 
         || BridgeSensorUp(initBridgeSensorsUp) 
         || BridgeSensorDown(initBridgeSensorsDown) 
-        || BarrierSensorUp(initBarrierSensorsUp) 
-        || BarrierSensorDown(initBarrierSensorsDown) 
         || Sensors 
         || User
   ) ) ;
