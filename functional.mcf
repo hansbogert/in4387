@@ -1,4 +1,4 @@
 %deze u calculus regel kijkt of het mogelijk is om de brug omhoog te krijgen
 %en of het mogelijk is om vanuit elke state naar de driveway open state te gaan.
 
-(<true* . proc_bridge_change_to_down> true) && ([true*] <true* . driveway_open> true)
+(<true* . proc_bridge_up> true) && ([true*] <true* . driveway_open> true)
