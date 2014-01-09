@@ -1,2 +1,5 @@
 % 1. The stop-signs lights are allowed to switch on only when the pre-sign light are on
-[!allPresignOn*] => ( forall s:StopSign . <true* . comm_stopSigns_switch(s, on)> false )
+%[!allPresignOn*] => ( forall s:StopSign . <true* . comm_stopSigns_switch(s, on)> false )
+
+%since <a> false is always false, alternatively we can use:
+forall s:StopSign . [true* . allPresignOn . !allPresignOff* . comm_stopSigns_switch(s, on)]false
