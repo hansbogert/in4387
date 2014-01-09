@@ -1,2 +1,2 @@
 % 1. The stop-signs lights are allowed to switch on only when the pre-sign light are on
-forall s:StopSign . [true* . comm_stopSigns_switch(s,on)]<flag_all_pre_signs_on>true
+forall s:StopSign . [true* . comm_stopSigns_switch(s,on)]( <flag_all_pre_signs_on>true && [!flag_all_pre_signs_on]false )
