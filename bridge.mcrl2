@@ -40,7 +40,6 @@ act driveway_open;
     comm_preSigns_switch: PreSign # Sign_Status;
     comm_stopSigns_switch: StopSign # Sign_Status;
 
-    proc_barrier_down, proc_barrier_up;
     proc_barrier_move: Barrier # Barrier_Position;
     user_barrier_move: Barrier # Barrier_Position;
     comm_barrier_move: Barrier # Barrier_Position;
