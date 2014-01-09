@@ -2,4 +2,4 @@
 %!allStopsignOn => ( forall p:StopSign . <true* . comm_barrier_action(s, on)> false )
 
 forall s: StopSign . 
-[true* . comm_stopSigns_switch(s, off)] <flag_all_barriers_open> true
+[true* . comm_stopSigns_switch(s, off)] <flag_all_barriers_up> true

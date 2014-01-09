@@ -1,0 +1,45 @@
+sort  
+    Lock = struct Locked | Unlocked; 
+    Lock_Pin = struct L1 | L2;
+    Lock_Pins = Lock_Pin -> Lock;
+    Bridge_Move = struct BridgeMoveUp | BridgeMoveDown | BridgeMoveStop;
+    Bridge_Position = struct BridgeUp | BridgeDown;
+    Bridge_Brake = struct BrakeEngaged | BrakeDisEngaged;
+
+act
+    proc_lock_pin_motor: Lock_Pin # Lock;
+    proc_motor_action: Bridge_Move;
+    proc_bridge_brake_action: Bridge_Brake;
+
+map initLockPins: Lock_Pin -> Lock;
+var p: Lock_Pin;
+eqn initLockPins(p) = Locked;
+
+proc Bridge(pins: Lock_Pins, brake: Bridge_Brake, position: Bridge_Position) =
+      %lockpins mogen veranderen als barriers omlaag staan, de brug omlaag staat en de brug rem erop staat
+      (position == BridgeDown) ->
+            (brake == BrakeEngaged) ->
+                 sum l: Lock_Pin, s: Lock . (pins(l) != s) -> proc_lock_pin_motor(l, s) . Bridge(pins[l->s], brake, position) 
+
+      %de bridge brake mag van status veranderen als de lockpinnen unlocked zijn
+      + (forall l: Lock_Pin . pins(l) == Unlocked) ->
+            sum bb: Bridge_Brake . (bb != brake) ->  proc_bridge_brake_action(bb) . Bridge(pins, bb, position)
+      %de brug sensoren en motor mag veranderen als de rem van de brug af is
+      + (brake == BrakeDisEngaged) ->
+            (position == BridgeDown) ->
+                proc_motor_action(BridgeMoveUp) . proc_motor_action(BridgeMoveStop) . Bridge(pins, brake, BridgeUp)  
+      + (position == BridgeUp) ->
+            proc_motor_action(BridgeMoveDown) . proc_motor_action(BridgeMoveStop) . Bridge(pins, brake, BridgeDown);
+
+
+      %de vlaggetjes voor u-calculus
+      %+ (forall l: Lock_Pin . pins(l) == Unlocked) -> flag_all_lock_pins_unlocked . Bridge()
+      %+ (forall l: Lock_Pin . pins(l) == Locked) -> (flag_all_lock_pins_locked + send_lock_pins_locked) . Bridge()
+      %+ (brake == BrakeDisEngaged) -> flag_brake_disengaged . Bridge()
+      %+ (brake == BrakeEngaged) -> flag_brake_engaged . Bridge()
+      %+ (position == BridgeDown) ->
+      %      flag_bridge_down . Bridge()
+      %+ (position == BridgeUp) ->
+      %      flag_bridge_up . Bridge()
+
+init Bridge(initLockPins, BrakeEngaged, BridgeDown);
