@@ -195,8 +195,8 @@ proc
       %de vlaggetjes voor u-calculus
       + (forall l: Lock_Pin . pins(l) == Unlocked) -> flag_all_lock_pins_unlocked . Bridge()
       + (forall l: Lock_Pin . pins(l) == Locked) -> (flag_all_lock_pins_locked + send_lock_pins_locked) . Bridge()
-      + (brake == BrakeDisEngaged) -> flag_brake_engaged . Bridge()
-      + (brake == BrakeEngaged) ->  flag_brake_disengaged . Bridge()
+      + (brake == BrakeDisEngaged) -> flag_brake_disengaged . Bridge()
+      + (brake == BrakeEngaged) -> flag_brake_engaged . Bridge()
       + (position == BridgeDown) ->
             ((downs(BD1) == DetectBridge) && (downs(BD2) == DetectBridge)) ->
                 ((ups(BU1) == NoDetectBridge) && (ups(BU2) == NoDetectBridge)) ->

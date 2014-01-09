@@ -1,2 +1,4 @@
 % 8. The barriers are allowed to open when the brake is engaged and the locking
-pins are locked
+% pins are locked
+
+[true* . comm_barrier_move(B1, BarrierUp)] <flag_brake_engaged> true
