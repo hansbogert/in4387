@@ -1,0 +1,5 @@
+%% We assumed the formula on the right of the implication would resume
+%% where the lefthand stopeed, this is not true, implication of course
+%% is on the same level as && and ||
+
+<a>true => <a>true
