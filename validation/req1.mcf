@@ -3,3 +3,6 @@
 
 %since <a> false is always false, alternatively we can use:
 forall s:StopSign . <true* . flag_all_pre_signs_on . !flag_all_pre_signs_off* . comm_stopSigns_switch(s, on)>true
+
+%alternative
+forall s:StopSign, p:PreSign . <true* . flag_all_pre_signs_on . !comm_preSigns_switch(p, off)* . comm_stopSigns_switch(s, on)>true
