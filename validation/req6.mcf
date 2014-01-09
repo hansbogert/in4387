@@ -1,3 +1,4 @@
 % 6. The bridge motor is only allowed to go down when the brake is disengaged.
 
 [true* . comm_motor_action(BridgeMoveDown)] <flag_brake_disengaged> true
+
