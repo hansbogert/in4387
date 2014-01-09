@@ -1,2 +1,3 @@
 % 2. The barriers are only allowed to close when the stop-signs are on
-!allPresignOn => ( forall 
+forall b:Barrier . ([true* . 
+comm_barrier_move(b,BarrierDown)]<flag_all_stop_signs_on>true)
