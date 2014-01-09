@@ -136,7 +136,7 @@ proc
         % als alle preSigns uit staan en de barriers staan omhoog dan mogen de stopSigns ook uit
       + (forall p: PreSign . preSigns(p) == off) ->
           (recv_stopSigns_turn_off . ((sum s: StopSign . (stopSigns(s) == on) -> proc_stopSigns_switch(s, off) . Signs(preSigns, stopSigns[s->off])) + Signs())
-        + flag_all_stop_signs_off . Signs())
+        + flag_all_pre_signs_off . Signs())
         % als alle signs uit staan dan kan het verkeer rijden
       + (forall p: PreSign . preSigns(p) == off) ->
             (forall s:StopSign . stopSigns(s) == off) -> 
@@ -222,7 +222,6 @@ proc
       + sensor_barrier_up_value(B1Up, NoDetectBarrier) . sensor_barrier_up_value(B2Up, NoDetectBarrier) . sensor_barrier_up_value(B3Up, NoDetectBarrier) . sensor_barrier_up_value(B4Up, NoDetectBarrier) . Sensors
       ;
 
-
   User = 
       %de gebruiker kan altijd alle knoppen indrukken:
       %  sum p: PreSign, st: Sign_Status . user_preSigns_switch(p, st) . User
@@ -243,8 +242,7 @@ proc
       + user_motor_action(BridgeMoveDown) . user_motor_action(BridgeMoveStop) . User
       + user_barrier_move(B1, BarrierDown) . user_barrier_move(B2, BarrierDown) . user_barrier_move(B3, BarrierDown) . user_barrier_move(B4, BarrierDown) . User
       + user_barrier_move(B1, BarrierUp) . user_barrier_move(B2, BarrierUp) . user_barrier_move(B3, BarrierUp) . user_barrier_move(B4, BarrierUp) . User
-      ;
-      
+      ;      
 
 init
   allow( {
