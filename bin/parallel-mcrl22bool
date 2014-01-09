@@ -1,5 +1,5 @@
 #!/bin/bash
-export PBES2BOOL_OPTIONS="--timings"
+export PBES2BOOL_OPTIONS="--timings --tree"
 while getopts ":j:" opt; do
   case $opt in
     j) # mcrl2lps options
