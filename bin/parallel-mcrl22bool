@@ -1,0 +1,24 @@
+#!/bin/bash
+export PBES2BOOL_OPTIONS="--timings"
+while getopts ":j:" opt; do
+  case $opt in
+    j) # mcrl2lps options
+      threads="-j $OPTARG"
+      ;;
+    \?)
+      echo "invalid option: -$OPTARG"
+      exit 1
+    ;;
+    :)
+      echo "-$OPTARG needs argument"
+      exit 1
+    ;;
+  esac
+  shift $((OPTIND-1))
+done
+
+mcrlFile=$1
+
+shift
+
+parallel $threads --gnu mcrl22bool -f{} $mcrlFile ::: $@
