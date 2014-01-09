@@ -21,4 +21,4 @@ mcrlFile=$1
 
 shift
 
-parallel $threads --gnu mcrl22bool -f{} $mcrlFile ::: $@
+parallel --gnu $threads "echo {} ;mcrl22bool -f{} $mcrlFile" ::: $@
