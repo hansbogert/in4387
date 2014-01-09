@@ -1,1 +1,2 @@
 % 3. The locking pins are only allowed to unlock when the barriers are closed.
+forall l:Lock_Pin . ([true* . comm_lock_pin_motor(l,Unlocked)] <flag_all_barriers_down>true)
