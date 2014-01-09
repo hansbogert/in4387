@@ -2,4 +2,4 @@
 %[!allPresignOn*] => ( forall s:StopSign . <true* . comm_stopSigns_switch(s, on)> false )
 
 %since <a> false is always false, alternatively we can use:
-forall s:StopSign . [true* . allPresignOn . !allPresignOff* . comm_stopSigns_switch(s, on)]false
+forall s:StopSign . <true* . flag_all_pre_signs_on . !flag_all_pre_signs_off* . comm_stopSigns_switch(s, on)>true
