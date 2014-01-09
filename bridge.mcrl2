@@ -212,7 +212,7 @@ proc
       %  sum bd: Bridge_Sensor_Down, s: Bridge_Sensor_Value . sensor_bridge_sensor_down_action(bd, s) . Sensors
       %+ sum bu: Bridge_Sensor_Up, s: Bridge_Sensor_Value . sensor_bridge_sensor_up_action(bu, s) . Sensors
       %+ sum b: Barrier_Sensor_Down, s: Barrier_Sensor_Value . sensor_barrier_down_value(b, s) . Sensors
-      %+ sum b: Barrier_Sensor_Up, s: Barrier_Sensor_Value . sensor_barrier_up_value(b, s) . Sensors;
+      %+ sum b: Barrier_Sensor_Up, s: Barrier_Sensor_Value . sensor_barrier_up_value(b, s) . Sensors
       %De sensoren kunnnen alleen in groepen in en uitgeschakeld worden
         sensor_bridge_sensor_down_action(BD1, DetectBridge) . sensor_bridge_sensor_down_action(BD2, DetectBridge) . sensor_bridge_sensor_up_action(BU1, NoDetectBridge) . sensor_bridge_sensor_up_action(BU2, NoDetectBridge) . Sensors
       + sensor_bridge_sensor_down_action(BD1, NoDetectBridge) . sensor_bridge_sensor_down_action(BD2, NoDetectBridge) . sensor_bridge_sensor_up_action(BU1, DetectBridge) . sensor_bridge_sensor_up_action(BU2, DetectBridge) . Sensors
