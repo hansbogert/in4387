@@ -1,0 +1,41 @@
+sort  
+    Lock = struct Locked | Unlocked; 
+    Bridge_Move = struct BridgeMoveUp | BridgeMoveDown | BridgeMoveStop;
+    Bridge_Position = struct BridgeUp | BridgeDown;
+    Bridge_Brake = struct BrakeEngaged | BrakeDisEngaged;
+
+act
+    proc_lock_pins_motor: Lock;
+    proc_motor_action: Bridge_Move;
+    proc_bridge_brake_action: Bridge_Brake;
+
+
+proc Bridge(pins: Lock, brake: Bridge_Brake, position: Bridge_Position) =
+      %lockpins mogen veranderen als barriers omlaag staan, de brug omlaag staat en de brug rem erop staat
+      (position == BridgeDown) ->
+            (brake == BrakeEngaged) ->
+                 sum s: Lock . (pins != s) -> proc_lock_pins_motor(s) . Bridge(s, brake, position) 
+
+      %de bridge brake mag van status veranderen als de lockpinnen unlocked zijn
+      + (pins == Unlocked) ->
+            sum bb: Bridge_Brake . (bb != brake) ->  proc_bridge_brake_action(bb) . Bridge(pins, bb, position)
+      %de brug sensoren en motor mag veranderen als de rem van de brug af is
+      + (brake == BrakeDisEngaged) -> (
+            (position == BridgeDown) ->
+                proc_motor_action(BridgeMoveUp) . Bridge(pins, brake, BridgeUp)  
+          + (position == BridgeUp) ->
+                proc_motor_action(BridgeMoveDown) . Bridge(pins, brake, BridgeDown)
+      )
+      ;
+
+      %de vlaggetjes voor u-calculus
+      %+ (forall l: Lock_Pin . pins(l) == Unlocked) -> flag_all_lock_pins_unlocked . Bridge()
+      %+ (forall l: Lock_Pin . pins(l) == Locked) -> (flag_all_lock_pins_locked + send_lock_pins_locked) . Bridge()
+      %+ (brake == BrakeDisEngaged) -> flag_brake_disengaged . Bridge()
+      %+ (brake == BrakeEngaged) -> flag_brake_engaged . Bridge()
+      %+ (position == BridgeDown) ->
+      %      flag_bridge_down . Bridge()
+      %+ (position == BridgeUp) ->
+      %      flag_bridge_up . Bridge()
+
+init Bridge(Locked, BrakeEngaged, BridgeDown);
