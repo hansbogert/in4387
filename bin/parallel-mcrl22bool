@@ -1,5 +1,5 @@
 #!/bin/bash
-export PBES2BOOL_OPTIONS="--timings"
+export PBES2BOOL_OPTIONS="--timings --tree"
 while getopts ":j:" opt; do
   case $opt in
     j) # mcrl2lps options
@@ -21,4 +21,4 @@ mcrlFile=$1
 
 shift
 
-parallel $threads --gnu mcrl22bool -f{} $mcrlFile ::: $@
+parallel --gnu $threads "echo {} ;mcrl22bool -f{} $mcrlFile" ::: $@
