@@ -117,34 +117,33 @@ eqn initLockPins(p) = Locked;
 
 proc
   Signs(preSigns: PreSigns, stopSigns: StopSigns) = 
-        % als alle stopsigns uit staan, mogen de preSigns aan
+        % if all stopsigns are off, the presigns are allowed to turn on
         (forall s:StopSign . stopSigns(s) == off) -> 
           (sum p: PreSign, st: Sign_Status . (preSigns(p) != st) -> proc_preSigns_switch(p, st) . Signs(preSigns[p->st], stopSigns)
         + flag_all_stop_signs_off . Signs())
-        % De StopSigns mogen pas aan als alle PreSigns aan staan
+        %The stopsigns may turn on of all presigns are on
       + (forall p: PreSign . preSigns(p) == on) -> 
           (sum s: StopSign . (stopSigns(s) == off) -> proc_stopSigns_switch(s, on) . Signs(preSigns, stopSigns[s->on])
         + flag_all_pre_signs_on . Signs())
-        % als alle StopSigns aanstaan, mogen de preSigns uit
+        %If all stopsigns are on the presigns may turn off
       + (forall s: StopSign . stopSigns(s) == on) -> 
           (sum p: PreSign . (preSigns(p) == on) -> proc_preSigns_switch(p, off) . Signs(preSigns[p->off], stopSigns)
         + flag_all_stop_signs_on . Signs())
-        % als alle stopsigns aanstaan en! alle presigns uit, dan zijn we in de speciale state waar de barriers omlaag zouden mogen 
+        %if all stopsigns are on and all presigns are off the barriers are allowed to go down
       + (forall p: PreSign, s: StopSign  . preSigns(p) == off && stopSigns(s) == on) -> 
           send_signs_stop_ready . Signs()
-        % als alle preSigns uit staan en de barriers staan omhoog dan mogen de stopSigns ook uit
+        %if all presigns are off and the barriers are up the stop signs are allowed to turn off
       + (forall p: PreSign . preSigns(p) == off) ->
           (recv_stopSigns_turn_off . ((sum s: StopSign . (stopSigns(s) == on) -> proc_stopSigns_switch(s, off) . Signs(preSigns, stopSigns[s->off])) + Signs())
         + flag_all_pre_signs_off . Signs())
-        % als alle signs uit staan dan kan het verkeer rijden
+        %if all signs are turnt off the road traffic can drive
       + (forall p: PreSign . preSigns(p) == off) ->
             (forall s:StopSign . stopSigns(s) == off) -> 
                 flag_road_open . Signs()
       ;
 
   BarrierProcess(bars: Barriers, BarSensDown: Barrier_Sensors_Down, barSensUp: Barrier_Sensors_Up) =
-  % proc_barrier_move_pins beperkt de explosie van states door te zeggen dat barriers alleen mogen bewegen als de lockpinnen gelocked zijn
-  % dit is te zien in de eerste comm voorwaarde 5
+      % The barriers and barrier sensors are only allowed to change status when the stop signs are on
       recv_barrier_change . (
            sum b: Barrier, p:Barrier_Position . (bars(b) != p) -> proc_barrier_move(b, p) . BarrierProcess(bars[b->p], BarSensDown, barSensUp)
          + sum bd: Barrier_Sensor_Down, sd: Barrier_Sensor_Value . (BarSensDown(bd) != sd) -> proc_barrier_down_value(bd, sd) 
@@ -153,12 +152,15 @@ proc
            . BarrierProcess(bars, BarSensDown, barSensUp[bu->su])
          + BarrierProcess() 
       ) 
-      %sum b: Barrier, p:Barrier_Position . (bars(b) != p) -> proc_barrier_move(b, p) . proc_barrier_change . BarrierProcess(bars[b->p])
+      %The flags and signals
+      %when all barriers are down, all barrier down sensors detect a barrier and all barrier up senors
+      %do not detect a barrier the barriers are down
       + (forall b: Barrier . bars(b) == BarrierDown) -> 
             (forall bd: Barrier_Sensor_Down . BarSensDown(bd) == DetectBarrier) ->
                  (forall bu: Barrier_Sensor_Up . barSensUp(bu) == NoDetectBarrier) ->
                      (flag_all_barriers_down + send_barrier_down) . BarrierProcess()
-
+      %when all barriers are up, all barrier up sensors detect a barrier and all barrier down senors
+      %do not detect a barrier the barriers are up
       + (forall b: Barrier . bars(b) == BarrierUp) ->
             (forall bd: Barrier_Sensor_Down . BarSensDown(bd) == NoDetectBarrier) ->
                  (forall bu: Barrier_Sensor_Up . barSensUp(bu) == DetectBarrier) ->         
@@ -166,7 +168,8 @@ proc
       ;
 
   Bridge(pins: Lock_Pins, brake: Bridge_Brake, motorstate: Bridge_Move, position: Bridge_Position, downs: Bridge_Sensors_Down, ups: Bridge_Sensors_Up) =
-      %lockpins mogen veranderen als barriers omlaag staan, de brug omlaag staat en de brug rem erop staat
+      %lockpins are allowed to change state when the bridge is down the sensors down detect the bridge, 
+      %the sensors bridge up do not detect the bridge and the bridge brake is engaged
       recv_lock_pins_change . (
          (position == BridgeDown) ->
             ((downs(BD1) == DetectBridge) && (downs(BD2) == DetectBridge)) ->
@@ -175,11 +178,11 @@ proc
             	 sum l: Lock_Pin, s: Lock . (pins(l) != s) -> proc_lock_pin_motor(l, s) . Bridge(pins[l->s], brake, motorstate, position, downs, ups) 
           + Bridge() 
       )
-      %de bridge brake mag van status veranderen als de lockpinnen unlocked zijn
+      %the bridge brake may change its state when the lockpins are unlocked en the bridge engine is turnt off
       + (forall l: Lock_Pin . pins(l) == Unlocked) ->
             ((motorstate!=BridgeMoveUp) && (motorstate!=BridgeMoveDown)) ->
                 sum bb: Bridge_Brake . (bb != brake) ->  proc_bridge_brake_action(bb) . Bridge(pins, bb, motorstate, position, downs, ups)
-      %de brug sensoren en motor mag veranderen als de rem van de brug af is
+      %the bridge motor and sensors may change if the bridge brake is disengaged
       + (brake == BrakeDisEngaged) -> (
            ((position == BridgeDown) && (motorstate!=BridgeMoveDown)) ->
                ((downs(BD1) == DetectBridge) && (downs(BD2) == DetectBridge)) ->
@@ -193,7 +196,7 @@ proc
          + sum bu: Bridge_Sensor_Up, su: Bridge_Sensor_Value . (ups(bu) != su) -> proc_bridge_sensor_up_action(bu, su). Bridge(pins, brake, motorstate, position, downs, ups[bu->su])
          + sum bd: Bridge_Sensor_Down, sd: Bridge_Sensor_Value . (downs(bd) != sd) -> proc_bridge_sensor_down_action(bd, sd) . Bridge(pins, brake, motorstate, position, downs[bd->sd], ups)         
       )
-      %de vlaggetjes voor u-calculus
+      %the flags for the mcf files
       + (forall l: Lock_Pin . pins(l) == Unlocked) -> flag_all_lock_pins_unlocked . Bridge()
       + (forall l: Lock_Pin . pins(l) == Locked) -> (flag_all_lock_pins_locked + send_lock_pins_locked) . Bridge()
       + (brake == BrakeDisEngaged) -> flag_brake_disengaged . Bridge()
@@ -209,12 +212,12 @@ proc
       ; 
 
   Sensors = 
-      %alle sensoren kunnen op elk moment kapot zijn en een willekeurige waarde afgeven
+      %all sensors can give any value at any time
         sum bd: Bridge_Sensor_Down, s: Bridge_Sensor_Value . sensor_bridge_sensor_down_action(bd, s) . Sensors
       + sum bu: Bridge_Sensor_Up, s: Bridge_Sensor_Value . sensor_bridge_sensor_up_action(bu, s) . Sensors
       + sum b: Barrier_Sensor_Down, s: Barrier_Sensor_Value . sensor_barrier_down_value(b, s) . Sensors
       + sum b: Barrier_Sensor_Up, s: Barrier_Sensor_Value . sensor_barrier_up_value(b, s) . Sensors
-      %De sensoren kunnnen alleen in groepen in en uitgeschakeld worden
+      %The sensors have limited possibilities
       %  sensor_bridge_sensor_down_action(BD1, DetectBridge) . sensor_bridge_sensor_down_action(BD2, DetectBridge) . sensor_bridge_sensor_up_action(BU1, NoDetectBridge) . sensor_bridge_sensor_up_action(BU2, NoDetectBridge) . Sensors
       %+ sensor_bridge_sensor_down_action(BD1, NoDetectBridge) . sensor_bridge_sensor_down_action(BD2, NoDetectBridge) . sensor_bridge_sensor_up_action(BU1, DetectBridge) . sensor_bridge_sensor_up_action(BU2, DetectBridge) . Sensors
       %+ sensor_barrier_down_value(B1Down, DetectBarrier) . sensor_barrier_down_value(B2Down, DetectBarrier) . sensor_barrier_down_value(B3Down, DetectBarrier) . sensor_barrier_down_value(B4Down, DetectBarrier) . Sensors
@@ -224,14 +227,14 @@ proc
       ;
 
   User = 
-      %de gebruiker kan altijd alle knoppen indrukken:
+      %the user can press any button at anytime
         sum p: PreSign, st: Sign_Status . user_preSigns_switch(p, st) . User
       + sum s: StopSign, st: Sign_Status . user_stopSigns_switch(s, st) . User
       + sum l: Lock_Pin, s: Lock . user_lock_pin_motor(l, s) . User
       + sum m: Bridge_Move . user_motor_action(m) . User      
       + sum b: Barrier, p: Barrier_Position . user_barrier_move(b, p) . User
       + sum bb: Bridge_Brake . user_bridge_brake_action(bb) . User
-      %de gebruiker heeft minimale bediening:
+      %the user is forced to press buttons in a precise order
       %  sum bb: Bridge_Brake . user_bridge_brake_action(bb) . User  
       %+ user_preSigns_switch(P1, on) . user_preSigns_switch(P2, on) . user_preSigns_switch(P3, on) . user_preSigns_switch(P4, on) . User
       %+ user_preSigns_switch(P1, off) . user_preSigns_switch(P2, off) . user_preSigns_switch(P3, off) . user_preSigns_switch(P4, off) . User
@@ -247,7 +250,7 @@ proc
 
 init
   allow( {
-        %system parralisation 
+        %process communication
         comm_stopSigns_turn_off,
         comm_barrier_change, 
         comm_lock_pins_change,
@@ -282,11 +285,11 @@ init
         flag_bridge_up    
     },
     comm(
-      { %voorwaarde x: de stop signs mogen alleen worden uitgezet als de barriers omhoog staan
+      { %the stop signs can be turnt off when the barrier is up
         recv_stopSigns_turn_off|send_barrier_up -> comm_stopSigns_turn_off,
-        %voorwaarde 0: de Barrier mogen pas omhoog zodra de Pinnen gelockt zijn
+        %the barrier may change position when the stop signs are on and the lockpins are locked
         recv_barrier_change|send_signs_stop_ready|send_lock_pins_locked -> comm_barrier_change,        
-        %voorwaarde 1: de lockpinnen mogen alleen veranderen van status als de brug en de barriers omlaag staan en de rem op de brug staat
+        %the lock pins may change state when the barriers are down
         recv_lock_pins_change|send_barrier_down -> comm_lock_pins_change,
 
         %user input
