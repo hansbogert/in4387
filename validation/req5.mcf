@@ -1,4 +1,4 @@
 % 5. The bridge brake is allowed to disengage when the barriers are closed.
 % voor alle states geld dat als de rem ontkoppeld kan worden dat de barriers dan naar beneden staan
 
-[true* . comm_bridge_brake_action(BrakeDisEngaged)] <flag_all_barriers_down> true
+[true* . bridge_brake_action(BrakeDisEngaged)] <flag_all_barriers_down> true

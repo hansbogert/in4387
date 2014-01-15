@@ -1,5 +1,4 @@
 % 9. The stop-sign lights are allowed to switch off when the barriers are open.
 %!allStopsignOn => ( forall p:StopSign . <true* . comm_barrier_action(s, on)> false )
 
-forall s: StopSign . 
-[true* . comm_stopSigns_switch(s, off)] <flag_all_barriers_up> true
+forall s: StopSign . [true* . stopSigns_switch(s, off)] <flag_all_barriers_up> true

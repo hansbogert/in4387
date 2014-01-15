@@ -2,5 +2,5 @@
 % pins are locked
 
 forall b: Barrier . 
-([true* . comm_barrier_move(b, BarrierUp)] <flag_brake_engaged> true
-&& [true* . comm_barrier_move(b, BarrierUp)] <flag_all_lock_pins_locked> true)
+([true* . barrier_move(b, BarrierUp)] <flag_brake_engaged> true
+&& [true* . barrier_move(b, BarrierUp)] <flag_all_lock_pins_locked> true)

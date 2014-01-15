@@ -1,3 +1,2 @@
 % 4. The locking pins are only allowed to lock when the bridge is down
-forall lp: Lock_Pin . ([true* . 
-comm_lock_pin_motor(lp, Locked)]<flag_bridge_down>true)
+forall lp: Lock_Pin . ( [true* . lock_pin_motor(lp, Locked)] <flag_bridge_down> true )
