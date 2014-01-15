@@ -102,22 +102,16 @@ map
     initBridgeSensorsDown: Bridge_Sensor_Down -> Bridge_Sensor_Value;
     initBarrierSensorsUp: Barrier_Sensor_Up -> Barrier_Sensor_Value;
     initBarrierSensorsDown: Barrier_Sensor_Down -> Barrier_Sensor_Value;
-var 
-    p: Lock_Pin;
-    b: Barrier;
-    bd: Bridge_Sensor_Down;
-    bu: Bridge_Sensor_Up;
-    bad: Barrier_Sensor_Down;
-    bau: Barrier_Sensor_Up;
-eqn initLockPins(p) = Locked;
-    initBarriers(b) = BarrierUp;
-    initBridgeSensorsDown(bd) = DetectBridge;
-    initBridgeSensorsUp(bu) = NoDetectBridge;
-    initBarrierSensorsUp(bau) = DetectBarrier;
-    initBarrierSensorsDown(bad) = NoDetectBarrier;
-    initPreSigns  = lambda x : PreSign  . off;
+eqn 
+    initLockPins = lambda x : Lock_Pin . Locked;
+    initBarriers = lambda x : Barrier . BarrierUp;
+    initBridgeSensorsDown = lambda x : Bridge_Sensor_Down . DetectBridge;
+    initBridgeSensorsUp = lambda x : Bridge_Sensor_Up . NoDetectBridge;
+    initBarrierSensorsUp = lambda x : Barrier_Sensor_Up . DetectBarrier;
+    initBarrierSensorsDown = lambda x : Barrier_Sensor_Down . NoDetectBarrier;
+    initPreSigns  = lambda x : PreSign . off;
     initStopSigns = lambda x : StopSign . off;
-    initPreSignSensors  = lambda x : PreSign_Sensor  . off;
+    initPreSignSensors  = lambda x : PreSign_Sensor . off;
     initStopSignSensors = lambda x : StopSign_Sensor . off;
 
 proc
@@ -274,6 +268,9 @@ init
         comm_barrier_down_value,
 
         %mcf flags
+        flag_test_signs,
+        flag_test_barriers,
+        flag_test_bridge,
         flag_road_open,
         flag_all_pre_signs_off,
         flag_all_pre_signs_on,
