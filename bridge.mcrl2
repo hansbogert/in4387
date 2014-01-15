@@ -38,13 +38,9 @@ sort
 		
 act driveway_open;
 
-    proc_preSigns_switch: PreSign # Sign_Status;
-    proc_stopSigns_switch: StopSign # Sign_Status;
-    user_preSigns_switch: PreSign # Sign_Status;
-    user_stopSigns_switch: StopSign # Sign_Status;
-    comm_preSigns_switch: PreSign # Sign_Status;
-    comm_stopSigns_switch: StopSign # Sign_Status;
-
+    preSigns_switch: PreSign # Sign_Status;
+    stopSigns_switch: StopSign # Sign_Status;
+    
     sensor_preSign_sensor_action: PreSign_Sensor # Sign_Status;
     proc_preSign_sensor_action: PreSign_Sensor # Sign_Status;
     comm_preSign_sensor_action: PreSign_Sensor # Sign_Status;
@@ -52,10 +48,8 @@ act driveway_open;
     proc_stopSign_sensor_action: StopSign_Sensor # Sign_Status;
     comm_stopSign_sensor_action: StopSign_Sensor # Sign_Status;
 
-    proc_barrier_move: Barrier # Barrier_Position;
-    user_barrier_move: Barrier # Barrier_Position;
-    comm_barrier_move: Barrier # Barrier_Position;
-
+    barrier_move: Barrier # Barrier_Position;
+  
     sensor_barrier_up_value: Barrier_Sensor_Up # Barrier_Sensor_Value;
     proc_barrier_up_value: Barrier_Sensor_Up # Barrier_Sensor_Value;
     comm_barrier_up_value: Barrier_Sensor_Up # Barrier_Sensor_Value;
@@ -63,18 +57,10 @@ act driveway_open;
     proc_barrier_down_value: Barrier_Sensor_Down # Barrier_Sensor_Value;
     comm_barrier_down_value: Barrier_Sensor_Down # Barrier_Sensor_Value;
 
-    proc_lock_pin_motor: Lock_Pin # Lock;
-    user_lock_pin_motor: Lock_Pin # Lock;
-    comm_lock_pin_motor: Lock_Pin # Lock;
-
-    user_motor_action: Bridge_Move;
-    proc_motor_action: Bridge_Move;
-    comm_motor_action: Bridge_Move;
-
-    user_bridge_brake_action: Bridge_Brake;
-    proc_bridge_brake_action: Bridge_Brake;
-    comm_bridge_brake_action: Bridge_Brake;
-
+    lock_pin_motor: Lock_Pin # Lock;
+    motor_action: Bridge_Move;
+    bridge_brake_action: Bridge_Brake;
+    
     sensor_bridge_sensor_up_action: Bridge_Sensor_Up # Bridge_Sensor_Value;
     proc_bridge_sensor_up_action: Bridge_Sensor_Up # Bridge_Sensor_Value;
     comm_bridge_sensor_up_action: Bridge_Sensor_Up # Bridge_Sensor_Value;
@@ -88,6 +74,9 @@ act driveway_open;
     recv_lock_pins_change, send_barrier_down, comm_lock_pins_change;
 
 %flags actions:
+    flag_test_signs;
+    flag_test_barriers;
+    flag_test_bridge;
     flag_road_open;
     flag_all_pre_signs_off;
     flag_all_pre_signs_on;
@@ -135,17 +124,17 @@ proc
   Signs(preSigns: PreSigns, stopSigns: StopSigns, pSensors: PreSign_Sensors, sSensors: StopSign_Sensors) = 
         % if all stopsigns are off, the presigns are allowed to turn on
         (forall s:StopSign, ss: StopSign_Sensor . stopSigns(s) == off && sSensors(ss) == off) -> (
-          (sum p: PreSign, st: Sign_Status . (preSigns(p) != st) -> proc_preSigns_switch(p, st) . Signs(preSigns[p->st], stopSigns, pSensors, sSensors))
+          (sum p: PreSign, st: Sign_Status . (preSigns(p) != st) -> preSigns_switch(p, st) . Signs(preSigns[p->st], stopSigns, pSensors, sSensors))
         + (sum ps: PreSign_Sensor, st: Sign_Status . (pSensors(ps) != st) -> proc_preSign_sensor_action(ps, st) . Signs(preSigns, stopSigns, pSensors[ps->st], sSensors))
         + flag_all_stop_signs_off . Signs())
         %The stopsigns may turn on of all presigns are on
       + (forall p: PreSign, ps: PreSign_Sensor. preSigns(p) == on && pSensors(ps) == on) -> ( 
-          (sum s: StopSign . (stopSigns(s) == off) -> proc_stopSigns_switch(s, on) . Signs(preSigns, stopSigns[s->on], pSensors, sSensors))
+          (sum s: StopSign . (stopSigns(s) == off) -> stopSigns_switch(s, on) . Signs(preSigns, stopSigns[s->on], pSensors, sSensors))
         + (sum ss: StopSign_Sensor . (sSensors(ss) == off) -> proc_stopSign_sensor_action(ss, on) . Signs(preSigns, stopSigns, pSensors, sSensors[ss->on]))
         + flag_all_pre_signs_on . Signs())
         %If all stopsigns are on the presigns may turn off
       + (forall s: StopSign, ss: StopSign_Sensor. stopSigns(s) == on && sSensors(ss) == on) -> ( 
-          (sum p: PreSign . (preSigns(p) == on) -> proc_preSigns_switch(p, off) . Signs(preSigns[p->off], stopSigns, pSensors, sSensors))
+          (sum p: PreSign . (preSigns(p) == on) -> preSigns_switch(p, off) . Signs(preSigns[p->off], stopSigns, pSensors, sSensors))
         + (sum ps: PreSign_Sensor . (pSensors(ps) == on) -> proc_preSign_sensor_action(ps, off) . Signs(preSigns, stopSigns, pSensors[ps->off], sSensors))        
 		+ flag_all_stop_signs_on . Signs())
         %if all stopsigns are on and all presigns are off the barriers are allowed to go down
@@ -153,7 +142,7 @@ proc
           send_signs_stop_ready . Signs()
         %if all presigns are off and the barriers are up the stop signs are allowed to turn off
       + (forall p: PreSign, ps:PreSign_Sensor . preSigns(p) == off && pSensors(ps) == off) -> recv_stopSigns_turn_off . (
-          (sum s: StopSign . (stopSigns(s) == on) -> proc_stopSigns_switch(s, off) . Signs(preSigns, stopSigns[s->off], pSensors, sSensors)) 
+          (sum s: StopSign . (stopSigns(s) == on) -> stopSigns_switch(s, off) . Signs(preSigns, stopSigns[s->off], pSensors, sSensors)) 
         + (sum ss: StopSign_Sensor . (sSensors(ss) == on) -> proc_stopSign_sensor_action(ss, off) . Signs(preSigns, stopSigns, pSensors, sSensors[ss->off]))
         + Signs())
         % if all presigns and presign sensors are all off, then the all-presigns are off flag is valid. 
@@ -163,12 +152,14 @@ proc
       + (forall p: PreSign, ps: PreSign_Sensor . preSigns(p) == off && pSensors(ps) == off) ->
             (forall s:StopSign . stopSigns(s) == off) -> 
                 flag_road_open . Signs()
+        %test flag to prove that all flags can occur at any state
+      + flag_test_signs . Signs()
       ;
 
   BarrierProcess(bars: Barriers, BarSensDown: Barrier_Sensors_Down, barSensUp: Barrier_Sensors_Up) =
       % The barriers and barrier sensors are only allowed to change status when the stop signs are on
       recv_barrier_change . (
-           sum b: Barrier, p:Barrier_Position . (bars(b) != p) -> proc_barrier_move(b, p) . BarrierProcess(bars[b->p], BarSensDown, barSensUp)
+           sum b: Barrier, p:Barrier_Position . (bars(b) != p) -> barrier_move(b, p) . BarrierProcess(bars[b->p], BarSensDown, barSensUp)
          + sum bd: Barrier_Sensor_Down, sd: Barrier_Sensor_Value . (BarSensDown(bd) != sd) -> proc_barrier_down_value(bd, sd) 
            . BarrierProcess(bars, BarSensDown[bd->sd], barSensUp)
          + sum bu: Barrier_Sensor_Up, su: Barrier_Sensor_Value . (barSensUp(bu) != su) -> proc_barrier_up_value(bu, su) 
@@ -188,6 +179,8 @@ proc
             (forall bd: Barrier_Sensor_Down . BarSensDown(bd) == NoDetectBarrier) ->
                  (forall bu: Barrier_Sensor_Up . barSensUp(bu) == DetectBarrier) ->         
                      (flag_all_barriers_up + send_barrier_up) . BarrierProcess()
+        %test flag to prove that all flags can occur at any state
+      + flag_test_barriers . BarrierProcess()
       ;
 
   Bridge(pins: Lock_Pins, brake: Bridge_Brake, motorstate: Bridge_Move, position: Bridge_Position, downs: Bridge_Sensors_Down, ups: Bridge_Sensors_Up) =
@@ -198,24 +191,24 @@ proc
             ((downs(BD1) == DetectBridge) && (downs(BD2) == DetectBridge)) ->
                 ((ups(BU1) == NoDetectBridge) && (ups(BU2) == NoDetectBridge)) ->
                     (brake == BrakeEngaged) ->
-            	 sum l: Lock_Pin, s: Lock . (pins(l) != s) -> proc_lock_pin_motor(l, s) . Bridge(pins[l->s], brake, motorstate, position, downs, ups) 
+            	 sum l: Lock_Pin, s: Lock . (pins(l) != s) -> lock_pin_motor(l, s) . Bridge(pins[l->s], brake, motorstate, position, downs, ups) 
           + Bridge() 
       )
       %the bridge brake may change its state when the lockpins are unlocked en the bridge engine is turnt off
       + (forall l: Lock_Pin . pins(l) == Unlocked) ->
             ((motorstate!=BridgeMoveUp) && (motorstate!=BridgeMoveDown)) ->
-                sum bb: Bridge_Brake . (bb != brake) ->  proc_bridge_brake_action(bb) . Bridge(pins, bb, motorstate, position, downs, ups)
+                sum bb: Bridge_Brake . (bb != brake) ->  bridge_brake_action(bb) . Bridge(pins, bb, motorstate, position, downs, ups)
       %the bridge motor and sensors may change if the bridge brake is disengaged
       + (brake == BrakeDisEngaged) -> (
            ((position == BridgeDown) && (motorstate!=BridgeMoveDown)) ->
                ((downs(BD1) == DetectBridge) && (downs(BD2) == DetectBridge)) ->
                    ((ups(BU1) == NoDetectBridge) && (ups(BU2) == NoDetectBridge)) ->
-                       proc_motor_action(BridgeMoveUp) . Bridge(pins, brake, BridgeMoveUp, BridgeUp, downs, ups)  
+                       motor_action(BridgeMoveUp) . Bridge(pins, brake, BridgeMoveUp, BridgeUp, downs, ups)  
          + ((position == BridgeUp) && (motorstate!=BridgeMoveUp)) ->
                ((downs(BD1) == NoDetectBridge) && (downs(BD2) == NoDetectBridge)) ->
                    ((ups(BU1) == DetectBridge) && (ups(BU2) == DetectBridge)) ->  
-                       proc_motor_action(BridgeMoveDown) . Bridge(pins, brake, BridgeMoveDown, BridgeDown, downs, ups)
-         + (motorstate!=BridgeMoveStop) -> proc_motor_action(BridgeMoveStop) . Bridge(pins, brake, BridgeMoveStop, position, downs, ups)
+                       motor_action(BridgeMoveDown) . Bridge(pins, brake, BridgeMoveDown, BridgeDown, downs, ups)
+         + (motorstate!=BridgeMoveStop) -> motor_action(BridgeMoveStop) . Bridge(pins, brake, BridgeMoveStop, position, downs, ups)
          + sum bu: Bridge_Sensor_Up, su: Bridge_Sensor_Value . (ups(bu) != su) -> proc_bridge_sensor_up_action(bu, su). Bridge(pins, brake, motorstate, position, downs, ups[bu->su])
          + sum bd: Bridge_Sensor_Down, sd: Bridge_Sensor_Value . (downs(bd) != sd) -> proc_bridge_sensor_down_action(bd, sd) . Bridge(pins, brake, motorstate, position, downs[bd->sd], ups)         
       )
@@ -232,46 +225,30 @@ proc
             ((downs(BD1) == NoDetectBridge) && (downs(BD2) == NoDetectBridge)) ->
                 ((ups(BU1) == DetectBridge) && (ups(BU2) == DetectBridge)) ->
                     flag_bridge_up . Bridge()
+      %test flag to prove that all flags can occur at any state
+      + flag_test_bridge . Bridge()
       ; 
 
   Sensors = 
       %all sensors can give any value at any time
-        sum ps: PreSign_Sensor, st: Sign_Status . sensor_preSign_sensor_action(ps, st) . Sensors
-      + sum ss: StopSign_Sensor, st: Sign_Status . sensor_stopSign_sensor_action(ss, st) . Sensors
-      + sum bd: Bridge_Sensor_Down, s: Bridge_Sensor_Value . sensor_bridge_sensor_down_action(bd, s) . Sensors
-      + sum bu: Bridge_Sensor_Up, s: Bridge_Sensor_Value . sensor_bridge_sensor_up_action(bu, s) . Sensors
-      + sum b: Barrier_Sensor_Down, s: Barrier_Sensor_Value . sensor_barrier_down_value(b, s) . Sensors
-      + sum b: Barrier_Sensor_Up, s: Barrier_Sensor_Value . sensor_barrier_up_value(b, s) . Sensors
+      %  sum ps: PreSign_Sensor, st: Sign_Status . sensor_preSign_sensor_action(ps, st) . Sensors
+      %+ sum ss: StopSign_Sensor, st: Sign_Status . sensor_stopSign_sensor_action(ss, st) . Sensors
+      %+ sum bd: Bridge_Sensor_Down, s: Bridge_Sensor_Value . sensor_bridge_sensor_down_action(bd, s) . Sensors
+      %+ sum bu: Bridge_Sensor_Up, s: Bridge_Sensor_Value . sensor_bridge_sensor_up_action(bu, s) . Sensors
+      %+ sum b: Barrier_Sensor_Down, s: Barrier_Sensor_Value . sensor_barrier_down_value(b, s) . Sensors
+      %+ sum b: Barrier_Sensor_Up, s: Barrier_Sensor_Value . sensor_barrier_up_value(b, s) . Sensors
       %The sensors have limited possibilities
-      %  sensor_bridge_sensor_down_action(BD1, DetectBridge) . sensor_bridge_sensor_down_action(BD2, DetectBridge) . sensor_bridge_sensor_up_action(BU1, NoDetectBridge) . sensor_bridge_sensor_up_action(BU2, NoDetectBridge) . Sensors
-      %+ sensor_bridge_sensor_down_action(BD1, NoDetectBridge) . sensor_bridge_sensor_down_action(BD2, NoDetectBridge) . sensor_bridge_sensor_up_action(BU1, DetectBridge) . sensor_bridge_sensor_up_action(BU2, DetectBridge) . Sensors
-      %+ sensor_barrier_down_value(B1Down, DetectBarrier) . sensor_barrier_down_value(B2Down, DetectBarrier) . sensor_barrier_down_value(B3Down, DetectBarrier) . sensor_barrier_down_value(B4Down, DetectBarrier) . Sensors
-      %+ sensor_barrier_down_value(B1Down, NoDetectBarrier) . sensor_barrier_down_value(B2Down, NoDetectBarrier) . sensor_barrier_down_value(B3Down, NoDetectBarrier) . sensor_barrier_down_value(B4Down, NoDetectBarrier) . Sensors
-      %+ sensor_barrier_up_value(B1Up, DetectBarrier) . sensor_barrier_up_value(B2Up, DetectBarrier) . sensor_barrier_up_value(B3Up, DetectBarrier) . sensor_barrier_up_value(B4Up, DetectBarrier) . Sensors
-      %+ sensor_barrier_up_value(B1Up, NoDetectBarrier) . sensor_barrier_up_value(B2Up, NoDetectBarrier) . sensor_barrier_up_value(B3Up, NoDetectBarrier) . sensor_barrier_up_value(B4Up, NoDetectBarrier) . Sensors
+        sensor_preSign_sensor_action(SP1, on) . sensor_preSign_sensor_action(SP2, on) . sensor_preSign_sensor_action(SP3, on) . sensor_preSign_sensor_action(SP4, on) . Sensors
+      + sensor_preSign_sensor_action(SP1, off) . sensor_preSign_sensor_action(SP2, off) . sensor_preSign_sensor_action(SP3, off) . sensor_preSign_sensor_action(SP4, off) . Sensors
+      + sensor_stopSign_sensor_action(SS1, on) . sensor_stopSign_sensor_action(SS2, on) . sensor_stopSign_sensor_action(SS3, on) . sensor_stopSign_sensor_action(SS4, on) . Sensors
+      + sensor_stopSign_sensor_action(SS1, off) . sensor_stopSign_sensor_action(SS2, off) . sensor_stopSign_sensor_action(SS3, off) . sensor_stopSign_sensor_action(SS4, off) . Sensors
+      + sensor_bridge_sensor_down_action(BD1, DetectBridge) . sensor_bridge_sensor_down_action(BD2, DetectBridge) . sensor_bridge_sensor_up_action(BU1, NoDetectBridge) . sensor_bridge_sensor_up_action(BU2, NoDetectBridge) . Sensors
+      + sensor_bridge_sensor_down_action(BD1, NoDetectBridge) . sensor_bridge_sensor_down_action(BD2, NoDetectBridge) . sensor_bridge_sensor_up_action(BU1, DetectBridge) . sensor_bridge_sensor_up_action(BU2, DetectBridge) . Sensors
+      + sensor_barrier_down_value(B1Down, DetectBarrier) . sensor_barrier_down_value(B2Down, DetectBarrier) . sensor_barrier_down_value(B3Down, DetectBarrier) . sensor_barrier_down_value(B4Down, DetectBarrier) . Sensors
+      + sensor_barrier_down_value(B1Down, NoDetectBarrier) . sensor_barrier_down_value(B2Down, NoDetectBarrier) . sensor_barrier_down_value(B3Down, NoDetectBarrier) . sensor_barrier_down_value(B4Down, NoDetectBarrier) . Sensors
+      + sensor_barrier_up_value(B1Up, DetectBarrier) . sensor_barrier_up_value(B2Up, DetectBarrier) . sensor_barrier_up_value(B3Up, DetectBarrier) . sensor_barrier_up_value(B4Up, DetectBarrier) . Sensors
+      + sensor_barrier_up_value(B1Up, NoDetectBarrier) . sensor_barrier_up_value(B2Up, NoDetectBarrier) . sensor_barrier_up_value(B3Up, NoDetectBarrier) . sensor_barrier_up_value(B4Up, NoDetectBarrier) . Sensors
       ;
-
-  User = 
-      %the user can press any button at anytime
-        sum p: PreSign, st: Sign_Status . user_preSigns_switch(p, st) . User
-      + sum s: StopSign, st: Sign_Status . user_stopSigns_switch(s, st) . User
-      + sum l: Lock_Pin, s: Lock . user_lock_pin_motor(l, s) . User
-      + sum m: Bridge_Move . user_motor_action(m) . User      
-      + sum b: Barrier, p: Barrier_Position . user_barrier_move(b, p) . User
-      + sum bb: Bridge_Brake . user_bridge_brake_action(bb) . User
-      %the user is forced to press buttons in a precise order
-      %  sum bb: Bridge_Brake . user_bridge_brake_action(bb) . User  
-      %+ user_preSigns_switch(P1, on) . user_preSigns_switch(P2, on) . user_preSigns_switch(P3, on) . user_preSigns_switch(P4, on) . User
-      %+ user_preSigns_switch(P1, off) . user_preSigns_switch(P2, off) . user_preSigns_switch(P3, off) . user_preSigns_switch(P4, off) . User
-      %+ user_stopSigns_switch(S1, on) . user_stopSigns_switch(S2, on) . user_stopSigns_switch(S3, on) . user_stopSigns_switch(S4, on) . User
-      %+ user_stopSigns_switch(S1, off) . user_stopSigns_switch(S2, off) . user_stopSigns_switch(S3, off) . user_stopSigns_switch(S4, off) . User
-      %+ user_lock_pin_motor(L1, Locked) . user_lock_pin_motor(L2, Locked) . User
-      %+ user_lock_pin_motor(L1, Unlocked) . user_lock_pin_motor(L2, Unlocked) . User
-      %+ user_motor_action(BridgeMoveUp) . user_motor_action(BridgeMoveStop) . User
-      %+ user_motor_action(BridgeMoveDown) . user_motor_action(BridgeMoveStop) . User
-      %+ user_barrier_move(B1, BarrierDown) . user_barrier_move(B2, BarrierDown) . user_barrier_move(B3, BarrierDown) . user_barrier_move(B4, BarrierDown) . User
-      %+ user_barrier_move(B1, BarrierUp) . user_barrier_move(B2, BarrierUp) . user_barrier_move(B3, BarrierUp) . user_barrier_move(B4, BarrierUp) . User
-      ;      
 
 init
   allow( {
@@ -281,12 +258,12 @@ init
         comm_lock_pins_change,
         
         %user input
-        comm_preSigns_switch,
-        comm_stopSigns_switch,
-        comm_lock_pin_motor,
-        comm_motor_action,
-        comm_barrier_move,
-        comm_bridge_brake_action,
+        preSigns_switch,
+        stopSigns_switch,
+        lock_pin_motor,
+        motor_action,
+        barrier_move,
+        bridge_brake_action,
         
         %sensor input
         comm_preSign_sensor_action,
@@ -319,14 +296,6 @@ init
         %the lock pins may change state when the barriers are down
         recv_lock_pins_change|send_barrier_down -> comm_lock_pins_change,
 
-        %user input
-        user_preSigns_switch|proc_preSigns_switch -> comm_preSigns_switch,
-        user_stopSigns_switch|proc_stopSigns_switch -> comm_stopSigns_switch,
-        user_lock_pin_motor|proc_lock_pin_motor -> comm_lock_pin_motor,
-        user_motor_action|proc_motor_action -> comm_motor_action,
-        user_barrier_move|proc_barrier_move -> comm_barrier_move,
-        user_bridge_brake_action|proc_bridge_brake_action -> comm_bridge_brake_action,
-
         %sensor input 
         sensor_preSign_sensor_action|proc_preSign_sensor_action->comm_preSign_sensor_action,
         sensor_stopSign_sensor_action|proc_stopSign_sensor_action->comm_stopSign_sensor_action,
@@ -338,7 +307,6 @@ init
            Signs(initPreSigns, initStopSigns, initPreSignSensors, initStopSignSensors)
         || Bridge(initLockPins, BrakeEngaged, BridgeMoveStop, BridgeDown, initBridgeSensorsDown, initBridgeSensorsUp) 
         || BarrierProcess(initBarriers, initBarrierSensorsDown, initBarrierSensorsUp) 
-        || Sensors 
-        || User
+        || Sensors
   ) ) ;
 
