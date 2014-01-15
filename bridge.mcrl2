@@ -5,6 +5,11 @@ sort
     PreSigns = PreSign -> Sign_Status;
     StopSigns = StopSign -> Sign_Status;
 
+    PreSign_Sensor  = struct SP1 | SP2 | SP3 | SP4;
+    StopSign_Sensor = struct SS1 | SS2 | SS3 | SS4;
+    PreSign_Sensors = PreSign_Sensor -> Sign_Status;
+    StopSign_Sensors = StopSign_Sensor -> Sign_Status;
+
     Barrier = struct B1 | B2 | B3 | B4;
     Barrier_Position = struct BarrierUp | BarrierDown;
     Barrier_Move = struct BarrierMoveUp | BarrierMoveDown;
@@ -39,6 +44,13 @@ act driveway_open;
     user_stopSigns_switch: StopSign # Sign_Status;
     comm_preSigns_switch: PreSign # Sign_Status;
     comm_stopSigns_switch: StopSign # Sign_Status;
+
+    sensor_preSign_sensor_action: PreSign_Sensor # Sign_Status;
+    proc_preSign_sensor_action: PreSign_Sensor # Sign_Status;
+    comm_preSign_sensor_action: PreSign_Sensor # Sign_Status;
+    sensor_stopSign_sensor_action: StopSign_Sensor # Sign_Status;
+    proc_stopSign_sensor_action: StopSign_Sensor # Sign_Status;
+    comm_stopSign_sensor_action: StopSign_Sensor # Sign_Status;
 
     proc_barrier_move: Barrier # Barrier_Position;
     user_barrier_move: Barrier # Barrier_Position;
@@ -93,6 +105,8 @@ act driveway_open;
 map 
     initPreSigns : PreSign  -> Sign_Status;
     initStopSigns: StopSign -> Sign_Status;
+    initPreSignSensors : PreSign_Sensor  -> Sign_Status;
+    initStopSignSensors: StopSign_Sensor -> Sign_Status;
     initLockPins: Lock_Pin -> Lock;
     initBarriers: Barrier -> Barrier_Position;
     initBridgeSensorsUp: Bridge_Sensor_Up -> Bridge_Sensor_Value;
@@ -114,30 +128,39 @@ eqn initLockPins(p) = Locked;
     initBarrierSensorsDown(bad) = NoDetectBarrier;
     initPreSigns  = lambda x : PreSign  . off;
     initStopSigns = lambda x : StopSign . off;
+    initPreSignSensors  = lambda x : PreSign_Sensor  . off;
+    initStopSignSensors = lambda x : StopSign_Sensor . off;
 
 proc
-  Signs(preSigns: PreSigns, stopSigns: StopSigns) = 
+  Signs(preSigns: PreSigns, stopSigns: StopSigns, pSensors: PreSign_Sensors, sSensors: StopSign_Sensors) = 
         % if all stopsigns are off, the presigns are allowed to turn on
-        (forall s:StopSign . stopSigns(s) == off) -> 
-          (sum p: PreSign, st: Sign_Status . (preSigns(p) != st) -> proc_preSigns_switch(p, st) . Signs(preSigns[p->st], stopSigns)
+        (forall s:StopSign, ss: StopSign_Sensor . stopSigns(s) == off && sSensors(ss) == off) -> (
+          (sum p: PreSign, st: Sign_Status . (preSigns(p) != st) -> proc_preSigns_switch(p, st) . Signs(preSigns[p->st], stopSigns, pSensors, sSensors))
+        + (sum ps: PreSign_Sensor, st: Sign_Status . (pSensors(ps) != st) -> proc_preSign_sensor_action(ps, st) . Signs(preSigns, stopSigns, pSensors[ps->st], sSensors))
         + flag_all_stop_signs_off . Signs())
         %The stopsigns may turn on of all presigns are on
-      + (forall p: PreSign . preSigns(p) == on) -> 
-          (sum s: StopSign . (stopSigns(s) == off) -> proc_stopSigns_switch(s, on) . Signs(preSigns, stopSigns[s->on])
+      + (forall p: PreSign, ps: PreSign_Sensor. preSigns(p) == on && pSensors(ps) == on) -> ( 
+          (sum s: StopSign . (stopSigns(s) == off) -> proc_stopSigns_switch(s, on) . Signs(preSigns, stopSigns[s->on], pSensors, sSensors))
+        + (sum ss: StopSign_Sensor . (sSensors(ss) == off) -> proc_stopSign_sensor_action(ss, on) . Signs(preSigns, stopSigns, pSensors, sSensors[ss->on]))
         + flag_all_pre_signs_on . Signs())
         %If all stopsigns are on the presigns may turn off
-      + (forall s: StopSign . stopSigns(s) == on) -> 
-          (sum p: PreSign . (preSigns(p) == on) -> proc_preSigns_switch(p, off) . Signs(preSigns[p->off], stopSigns)
-        + flag_all_stop_signs_on . Signs())
+      + (forall s: StopSign, ss: StopSign_Sensor. stopSigns(s) == on && sSensors(ss) == on) -> ( 
+          (sum p: PreSign . (preSigns(p) == on) -> proc_preSigns_switch(p, off) . Signs(preSigns[p->off], stopSigns, pSensors, sSensors))
+        + (sum ps: PreSign_Sensor . (pSensors(ps) == on) -> proc_preSign_sensor_action(ps, off) . Signs(preSigns, stopSigns, pSensors[ps->off], sSensors))        
+		+ flag_all_stop_signs_on . Signs())
         %if all stopsigns are on and all presigns are off the barriers are allowed to go down
-      + (forall p: PreSign, s: StopSign  . preSigns(p) == off && stopSigns(s) == on) -> 
+      + (forall p: PreSign, s: StopSign, ps:PreSign_Sensor, ss:StopSign_Sensor  . preSigns(p) == off && stopSigns(s) == on && pSensors(ps) == off && sSensors(ss) == on) -> 
           send_signs_stop_ready . Signs()
         %if all presigns are off and the barriers are up the stop signs are allowed to turn off
-      + (forall p: PreSign . preSigns(p) == off) ->
-          (recv_stopSigns_turn_off . ((sum s: StopSign . (stopSigns(s) == on) -> proc_stopSigns_switch(s, off) . Signs(preSigns, stopSigns[s->off])) + Signs())
-        + flag_all_pre_signs_off . Signs())
+      + (forall p: PreSign, ps:PreSign_Sensor . preSigns(p) == off && pSensors(ps) == off) -> recv_stopSigns_turn_off . (
+          (sum s: StopSign . (stopSigns(s) == on) -> proc_stopSigns_switch(s, off) . Signs(preSigns, stopSigns[s->off], pSensors, sSensors)) 
+        + (sum ss: StopSign_Sensor . (sSensors(ss) == on) -> proc_stopSign_sensor_action(ss, off) . Signs(preSigns, stopSigns, pSensors, sSensors[ss->off]))
+        + Signs())
+        % if all presigns and presign sensors are all off, then the all-presigns are off flag is valid. 
+      + (forall p: PreSign, ps:PreSign_Sensor . preSigns(p) == off && pSensors(ps) == off) ->
+           flag_all_pre_signs_off . Signs()
         %if all signs are turnt off the road traffic can drive
-      + (forall p: PreSign . preSigns(p) == off) ->
+      + (forall p: PreSign, ps: PreSign_Sensor . preSigns(p) == off && pSensors(ps) == off) ->
             (forall s:StopSign . stopSigns(s) == off) -> 
                 flag_road_open . Signs()
       ;
@@ -213,7 +236,9 @@ proc
 
   Sensors = 
       %all sensors can give any value at any time
-        sum bd: Bridge_Sensor_Down, s: Bridge_Sensor_Value . sensor_bridge_sensor_down_action(bd, s) . Sensors
+        sum ps: PreSign_Sensor, st: Sign_Status . sensor_preSign_sensor_action(ps, st) . Sensors
+      + sum ss: StopSign_Sensor, st: Sign_Status . sensor_stopSign_sensor_action(ss, st) . Sensors
+      + sum bd: Bridge_Sensor_Down, s: Bridge_Sensor_Value . sensor_bridge_sensor_down_action(bd, s) . Sensors
       + sum bu: Bridge_Sensor_Up, s: Bridge_Sensor_Value . sensor_bridge_sensor_up_action(bu, s) . Sensors
       + sum b: Barrier_Sensor_Down, s: Barrier_Sensor_Value . sensor_barrier_down_value(b, s) . Sensors
       + sum b: Barrier_Sensor_Up, s: Barrier_Sensor_Value . sensor_barrier_up_value(b, s) . Sensors
@@ -263,7 +288,9 @@ init
         comm_barrier_move,
         comm_bridge_brake_action,
         
-        %sensor input 
+        %sensor input
+        comm_preSign_sensor_action,
+        comm_stopSign_sensor_action,
         comm_bridge_sensor_up_action,
         comm_bridge_sensor_down_action,
         comm_barrier_up_value,
@@ -301,12 +328,14 @@ init
         user_bridge_brake_action|proc_bridge_brake_action -> comm_bridge_brake_action,
 
         %sensor input 
+        sensor_preSign_sensor_action|proc_preSign_sensor_action->comm_preSign_sensor_action,
+        sensor_stopSign_sensor_action|proc_stopSign_sensor_action->comm_stopSign_sensor_action,
         sensor_bridge_sensor_up_action|proc_bridge_sensor_up_action -> comm_bridge_sensor_up_action,
         sensor_bridge_sensor_down_action|proc_bridge_sensor_down_action -> comm_bridge_sensor_down_action,
         sensor_barrier_up_value|proc_barrier_up_value -> comm_barrier_up_value,
         sensor_barrier_down_value|proc_barrier_down_value -> comm_barrier_down_value
       } , 
-           Signs(initPreSigns, initStopSigns)
+           Signs(initPreSigns, initStopSigns, initPreSignSensors, initStopSignSensors)
         || Bridge(initLockPins, BrakeEngaged, BridgeMoveStop, BridgeDown, initBridgeSensorsDown, initBridgeSensorsUp) 
         || BarrierProcess(initBarriers, initBarrierSensorsDown, initBarrierSensorsUp) 
         || Sensors 
