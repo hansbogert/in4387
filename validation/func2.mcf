@@ -1,0 +1,3 @@
+%deze mcf regel kijk of het mogelijk is om vanuit elke state de brug omhoog te brengen
+
+[true*] <true* . flag_bridge_up> true

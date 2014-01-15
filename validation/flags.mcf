@@ -1,0 +1,7 @@
+%deze u calculus regel kijkt of het mogelijk is om vanuit elke state 
+%alle flags uit de processen signs, barriers en bridge te benaderen
+
+([true*] <flag_test_signs> true) &&
+([true*] <flag_test_barriers> true) &&
+([true*] <flag_test_bridge> true)
+

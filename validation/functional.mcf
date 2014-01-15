@@ -1,4 +1,0 @@
-%deze u calculus regel kijkt of het mogelijk is om de brug omhoog te krijgen
-%en of het mogelijk is om vanuit elke state naar de driveway open state te gaan.
-
-(<true* . flag_bridge_up> true) && ([true*] <true* . flag_road_open> true)
